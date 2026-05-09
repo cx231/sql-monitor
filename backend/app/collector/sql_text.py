@@ -6,7 +6,7 @@ from typing import Optional
 
 _WHITESPACE_RE = re.compile(r"\s+")
 _SINGLE_QUOTED_STRING_RE = re.compile(r"'(?:''|[^'])*'")
-_NUMERIC_LITERAL_RE = re.compile(r"\b\d+(?:\.\d+)?\b")
+_NUMERIC_LITERAL_RE = re.compile(r"(?<![\w.])-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?(?![\w.])")
 
 
 def _collapse_whitespace(text: str) -> str:

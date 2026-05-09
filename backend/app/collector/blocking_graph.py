@@ -45,33 +45,51 @@ def build_blocking_edges(rows: Iterable[BlockingInput]) -> List[BlockingEdge]:
     edges: List[BlockingEdge] = []
     seen_edges: Set[Tuple[int, int]] = set()
 
-    def build_chain(session_id: int, path: Set[int]) -> Tuple[int, List[Tuple[int, int, int, bool]]]:
-        row = row_map[session_id]
-        blocker_session_id = _normalize_blocker(row.blocker_session_id)
-        if blocker_session_id is None:
-            return session_id, []
+    def build_chain(session_id: int) -> Tuple[int, List[Tuple[int, int, int, bool]]]:
+        current_session_id = session_id
+        visited: Set[int] = {session_id}
+        child_to_parent_edges: List[Tuple[int, int, bool]] = []
 
-        if blocker_session_id in _SPECIAL_BLOCKERS:
-            return blocker_session_id, [(blocker_session_id, session_id, 1, False)]
+        while True:
+            row = row_map[current_session_id]
+            blocker_session_id = _normalize_blocker(row.blocker_session_id)
+            if blocker_session_id is None:
+                root_session_id = current_session_id
+                break
 
-        if blocker_session_id in path:
-            return blocker_session_id, [(blocker_session_id, session_id, 1, True)]
+            if blocker_session_id in _SPECIAL_BLOCKERS:
+                child_to_parent_edges.append((blocker_session_id, current_session_id, False))
+                root_session_id = blocker_session_id
+                break
 
-        blocker_row = row_map.get(blocker_session_id)
-        if blocker_row is None:
-            return blocker_session_id, [(blocker_session_id, session_id, 1, False)]
+            child_to_parent_edges.append((blocker_session_id, current_session_id, False))
+            if blocker_session_id in visited:
+                root_session_id = blocker_session_id
+                child_to_parent_edges[-1] = (blocker_session_id, current_session_id, True)
+                break
 
-        root_session_id, parent_edges = build_chain(blocker_session_id, path | {session_id})
-        chain_depth = len(parent_edges) + 1
-        current_edge = (blocker_session_id, session_id, chain_depth, False)
-        return root_session_id, parent_edges + [current_edge]
+            blocker_row = row_map.get(blocker_session_id)
+            if blocker_row is None:
+                root_session_id = blocker_session_id
+                break
+
+            visited.add(blocker_session_id)
+            current_session_id = blocker_session_id
+
+        chain: List[Tuple[int, int, int, bool]] = []
+        for chain_depth, (blocker_id, blocked_id, cycle_detected) in enumerate(
+            reversed(child_to_parent_edges),
+            start=1,
+        ):
+            chain.append((blocker_id, blocked_id, chain_depth, cycle_detected))
+        return root_session_id, chain
 
     for row in ordered_rows:
         blocker_session_id = _normalize_blocker(row.blocker_session_id)
         if blocker_session_id is None:
             continue
 
-        root_session_id, chain = build_chain(row.session_id, {row.session_id})
+        root_session_id, chain = build_chain(row.session_id)
         for blocker_id, blocked_id, chain_depth, cycle_detected in chain:
             edge_key = (blocker_id, blocked_id)
             if edge_key in seen_edges:

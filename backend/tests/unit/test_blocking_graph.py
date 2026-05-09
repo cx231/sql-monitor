@@ -25,6 +25,22 @@ def test_build_blocking_edges_follows_chain_depth() -> None:
     assert [edge.chain_depth for edge in edges] == [1, 2]
 
 
+def test_build_blocking_edges_handles_long_chain_without_recursion_error() -> None:
+    rows = [
+        BlockingInput(session_id=session_id, blocker_session_id=session_id - 1)
+        for session_id in range(2, 1102)
+    ]
+
+    edges = build_blocking_edges(rows)
+
+    assert len(edges) == 1100
+    assert edges[0].blocker_session_id == 1
+    assert edges[0].blocked_session_id == 2
+    assert edges[-1].blocker_session_id == 1100
+    assert edges[-1].blocked_session_id == 1101
+    assert edges[-1].chain_depth == 1100
+
+
 def test_build_blocking_edges_handles_special_blockers() -> None:
     edges = build_blocking_edges(
         [
