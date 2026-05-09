@@ -1,0 +1,108 @@
+from __future__ import annotations
+
+import base64
+import uuid
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.models import Instance, InstanceCollectStatus
+from app.schemas.instances import InstanceCreate, InstanceOut, InstanceUpdate
+
+
+def encrypt_connection_string(connection_string: str) -> str:
+    return base64.b64encode(connection_string.encode("utf-8")).decode("ascii")
+
+
+def decrypt_connection_string(encrypted_connection_string: str) -> str:
+    return base64.b64decode(encrypted_connection_string.encode("ascii")).decode("utf-8")
+
+
+def _to_instance_out(instance: Instance) -> InstanceOut:
+    kill_dsn = None
+    if instance.encrypted_kill_dsn is not None:
+        kill_dsn = decrypt_connection_string(instance.encrypted_kill_dsn)
+
+    return InstanceOut(
+        id=instance.id,
+        name=instance.name,
+        host=instance.host,
+        port=instance.port,
+        database_name=instance.database_name,
+        environment=instance.environment,
+        collect_dsn=decrypt_connection_string(instance.encrypted_collect_dsn),
+        kill_dsn=kill_dsn,
+        status=instance.status,
+        collect_interval_seconds=instance.collect_interval_seconds,
+        retention_days=instance.retention_days,
+        business_owner=instance.business_owner,
+        dba_owner=instance.dba_owner,
+        sqlserver_version=instance.sqlserver_version,
+        created_at=instance.created_at,
+        updated_at=instance.updated_at,
+    )
+
+
+async def list_instances(session: AsyncSession) -> list[InstanceOut]:
+    result = await session.execute(select(Instance).order_by(Instance.created_at.desc()))
+    return [_to_instance_out(instance) for instance in result.scalars().all()]
+
+
+async def create_instance(session: AsyncSession, data: InstanceCreate) -> InstanceOut:
+    instance = Instance(
+        id=uuid.uuid4(),
+        name=data.name,
+        host=data.host,
+        port=data.port,
+        database_name=data.database_name,
+        environment=data.environment,
+        encrypted_collect_dsn=encrypt_connection_string(data.collect_dsn),
+        encrypted_kill_dsn=encrypt_connection_string(data.kill_dsn) if data.kill_dsn else None,
+        status=data.status,
+        collect_interval_seconds=data.collect_interval_seconds,
+        retention_days=data.retention_days,
+        business_owner=data.business_owner,
+        dba_owner=data.dba_owner,
+        sqlserver_version=data.sqlserver_version,
+    )
+    session.add(instance)
+    session.add(
+        InstanceCollectStatus(
+            instance_id=instance.id,
+            consecutive_failures=0,
+            status="unknown",
+            capabilities={},
+        )
+    )
+    await session.commit()
+    await session.refresh(instance)
+    return _to_instance_out(instance)
+
+
+async def update_instance(
+    session: AsyncSession,
+    instance_id: uuid.UUID,
+    data: InstanceUpdate,
+) -> InstanceOut | None:
+    instance = await session.get(Instance, instance_id)
+    if instance is None:
+        return None
+
+    instance.name = data.name
+    instance.host = data.host
+    instance.port = data.port
+    instance.database_name = data.database_name
+    instance.environment = data.environment
+    instance.encrypted_collect_dsn = encrypt_connection_string(data.collect_dsn)
+    instance.encrypted_kill_dsn = encrypt_connection_string(data.kill_dsn) if data.kill_dsn else None
+    instance.status = data.status
+    instance.collect_interval_seconds = data.collect_interval_seconds
+    instance.retention_days = data.retention_days
+    instance.business_owner = data.business_owner
+    instance.dba_owner = data.dba_owner
+    instance.sqlserver_version = data.sqlserver_version
+
+    await session.commit()
+    await session.refresh(instance)
+    return _to_instance_out(instance)
+
