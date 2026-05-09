@@ -85,6 +85,7 @@ class SnapshotFrame(Base):
     __tablename__ = "snapshot_frames"
     __table_args__ = (
         PrimaryKeyConstraint("id", "snapshot_time"),
+        Index("idx_snapshot_frames_instance_time", "instance_id", text("snapshot_time DESC")),
         {"postgresql_partition_by": "RANGE (snapshot_time)"},
     )
 
@@ -122,6 +123,7 @@ class SessionSnapshot(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # frame 对齐一致性由 Collector 单事务写入保证；后续分区化后再评估复合 FK。
     frame_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     instance_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
@@ -176,6 +178,7 @@ class RequestSnapshot(Base):
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # frame 对齐一致性由 Collector 单事务写入保证；后续分区化后再评估复合 FK。
     frame_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     instance_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
@@ -212,10 +215,12 @@ class WaitSnapshot(Base):
     __tablename__ = "wait_snapshots"
     __table_args__ = (
         PrimaryKeyConstraint("id", "snapshot_time"),
+        Index("idx_wait_snapshots_instance_time", "instance_id", text("snapshot_time DESC")),
         {"postgresql_partition_by": "RANGE (snapshot_time)"},
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # frame 对齐一致性由 Collector 单事务写入保证；后续分区化后再评估复合 FK。
     frame_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     instance_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
@@ -235,10 +240,12 @@ class BlockingSnapshot(Base):
     __tablename__ = "blocking_snapshots"
     __table_args__ = (
         PrimaryKeyConstraint("id", "snapshot_time"),
+        Index("idx_blocking_snapshots_instance_time", "instance_id", text("snapshot_time DESC")),
         {"postgresql_partition_by": "RANGE (snapshot_time)"},
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    # frame 对齐一致性由 Collector 单事务写入保证；后续分区化后再评估复合 FK。
     frame_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False)
     instance_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False

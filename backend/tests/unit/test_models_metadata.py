@@ -40,6 +40,7 @@ def test_required_check_constraints_are_registered() -> None:
 
 def test_required_indexes_are_registered() -> None:
     expected_indexes = {
+        "snapshot_frames": {"idx_snapshot_frames_instance_time"},
         "session_snapshots": {
             "idx_session_snapshots_instance_time",
             "idx_session_snapshots_session_time",
@@ -51,6 +52,8 @@ def test_required_indexes_are_registered() -> None:
             "idx_request_snapshots_io",
             "idx_request_snapshots_blocking",
         },
+        "wait_snapshots": {"idx_wait_snapshots_instance_time"},
+        "blocking_snapshots": {"idx_blocking_snapshots_instance_time"},
         "sql_texts": {"idx_sql_texts_normalized_hash"},
     }
 
@@ -59,3 +62,17 @@ def test_required_indexes_are_registered() -> None:
         actual_names = {index.name for index in table.indexes}
 
         assert index_names <= actual_names
+
+
+def test_snapshot_tables_include_frame_id() -> None:
+    snapshot_tables = {
+        "session_snapshots",
+        "request_snapshots",
+        "wait_snapshots",
+        "blocking_snapshots",
+    }
+
+    for table_name in snapshot_tables:
+        table = Base.metadata.tables[table_name]
+
+        assert "frame_id" in table.columns

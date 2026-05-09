@@ -117,6 +117,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", "snapshot_time"),
         postgresql_partition_by="RANGE (snapshot_time)",
     )
+    op.create_index("idx_snapshot_frames_instance_time", "snapshot_frames", ["instance_id", sa.text("snapshot_time DESC")])
     op.create_table(
         "session_snapshots",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -199,6 +200,7 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", "snapshot_time"),
         postgresql_partition_by="RANGE (snapshot_time)",
     )
+    op.create_index("idx_wait_snapshots_instance_time", "wait_snapshots", ["instance_id", sa.text("snapshot_time DESC")])
     op.create_table(
         "blocking_snapshots",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -220,10 +222,13 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id", "snapshot_time"),
         postgresql_partition_by="RANGE (snapshot_time)",
     )
+    op.create_index("idx_blocking_snapshots_instance_time", "blocking_snapshots", ["instance_id", sa.text("snapshot_time DESC")])
 
 
 def downgrade() -> None:
+    op.drop_index("idx_blocking_snapshots_instance_time", table_name="blocking_snapshots")
     op.drop_table("blocking_snapshots")
+    op.drop_index("idx_wait_snapshots_instance_time", table_name="wait_snapshots")
     op.drop_table("wait_snapshots")
     op.drop_index("idx_request_snapshots_blocking", table_name="request_snapshots")
     op.drop_index("idx_request_snapshots_io", table_name="request_snapshots")
@@ -234,6 +239,7 @@ def downgrade() -> None:
     op.drop_index("idx_session_snapshots_session_time", table_name="session_snapshots")
     op.drop_index("idx_session_snapshots_instance_time", table_name="session_snapshots")
     op.drop_table("session_snapshots")
+    op.drop_index("idx_snapshot_frames_instance_time", table_name="snapshot_frames")
     op.drop_table("snapshot_frames")
     op.drop_table("kill_audits")
     op.drop_table("instance_collect_status")
