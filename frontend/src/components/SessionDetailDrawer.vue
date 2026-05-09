@@ -9,12 +9,12 @@
     <DataState :loading="loading" :error="error" :empty="!session" empty-text="未找到会话">
       <template v-if="session">
         <el-descriptions :column="1" border size="small">
-          <el-descriptions-item label="Session ID">{{ session.session_id }}</el-descriptions-item>
+          <el-descriptions-item label="会话 ID">{{ session.session_id }}</el-descriptions-item>
           <el-descriptions-item label="登录名">{{ formatNullable(session.login_name) }}</el-descriptions-item>
           <el-descriptions-item label="主机">{{ formatNullable(session.host_name) }}</el-descriptions-item>
           <el-descriptions-item label="程序">{{ formatNullable(session.program_name) }}</el-descriptions-item>
           <el-descriptions-item label="数据库">{{ formatNullable(session.database_name) }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ formatNullable(session.status) }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ formatSessionStatus(session.status) }}</el-descriptions-item>
           <el-descriptions-item label="打开事务">{{ session.open_transaction_count }}</el-descriptions-item>
           <el-descriptions-item label="CPU">{{ formatNumber(session.cpu_time) }}</el-descriptions-item>
           <el-descriptions-item label="逻辑读">{{ formatNumber(session.logical_reads) }}</el-descriptions-item>
@@ -37,7 +37,7 @@
 <script setup lang="ts">
 import DataState from '@/components/DataState.vue';
 import type { SessionListItem } from '@/api/types';
-import { formatDurationMs, formatNullable, formatNumber } from '@/utils/format';
+import { formatDurationMs, formatNullable, formatNumber, formatSessionStatus } from '@/utils/format';
 
 defineProps<{
   visible: boolean;

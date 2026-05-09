@@ -18,7 +18,7 @@
         >
           <vxe-column field="session_id" title="会话" width="80" />
           <vxe-column field="database_name" title="数据库" width="120" />
-          <vxe-column field="status" title="状态" width="100" />
+          <vxe-column field="status" title="状态" width="100" :formatter="statusFormatter" />
           <vxe-column field="command" title="命令" width="110" />
           <vxe-column field="duration_ms" title="耗时" width="110" align="right" sortable :formatter="durationFormatter" />
           <vxe-column field="cpu_time_ms" title="CPU" width="110" align="right" sortable :formatter="numberFormatter" />
@@ -53,7 +53,7 @@ import DataState from '@/components/DataState.vue';
 import InstanceSelector from '@/components/InstanceSelector.vue';
 import { useInstancesStore } from '@/stores/instances';
 import { useRefreshStore } from '@/stores/refresh';
-import { formatDateTime, formatDurationMs, formatNumber, staleSeconds } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus, staleSeconds } from '@/utils/format';
 
 const instancesStore = useInstancesStore();
 const refreshStore = useRefreshStore();
@@ -109,6 +109,7 @@ function handleSortChange({ field, order }: { field: string; order: string | nul
 
 const numberFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatNumber(cellValue);
 const durationFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatDurationMs(cellValue);
+const statusFormatter = ({ cellValue }: { cellValue: string | null | undefined }) => formatSessionStatus(cellValue);
 
 onMounted(async () => {
   await instancesStore.fetchInstances();

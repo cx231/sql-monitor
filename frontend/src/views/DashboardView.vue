@@ -21,7 +21,7 @@
 
         <div class="content-grid">
           <section class="panel">
-            <h2>Top Wait</h2>
+            <h2>主要等待</h2>
             <vxe-table :data="dashboard.top_waits" size="small" border height="300">
               <vxe-column field="wait_type" title="等待类型" min-width="160" />
               <vxe-column field="wait_category" title="类别" width="120" />
@@ -32,7 +32,7 @@
           </section>
 
           <section class="panel">
-            <h2>Top CPU SQL</h2>
+            <h2>CPU 最高 SQL</h2>
             <vxe-table :data="dashboard.top_cpu_sqls" size="small" border height="300">
               <vxe-column field="session_id" title="会话" width="80" />
               <vxe-column field="database_name" title="数据库" width="120" />
@@ -43,7 +43,7 @@
           </section>
 
           <section class="panel">
-            <h2>Top IO SQL</h2>
+            <h2>IO 最高 SQL</h2>
             <vxe-table :data="dashboard.top_io_sqls" size="small" border height="300">
               <vxe-column field="session_id" title="会话" width="80" />
               <vxe-column field="database_name" title="数据库" width="120" />

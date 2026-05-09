@@ -14,7 +14,7 @@
     />
 
     <el-form class="kill-dialog__form" label-position="top">
-      <el-form-item label="目标 Session ID">
+      <el-form-item label="目标会话 ID">
         <el-input :model-value="String(sessionId ?? '-')" disabled />
       </el-form-item>
       <el-form-item label="原因">

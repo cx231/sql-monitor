@@ -7,9 +7,9 @@
 
     <div class="filters">
       <el-select v-model="filters.status" clearable placeholder="全部状态" class="filters__status">
-        <el-option label="running" value="running" />
-        <el-option label="sleeping" value="sleeping" />
-        <el-option label="suspended" value="suspended" />
+        <el-option label="运行中" value="running" />
+        <el-option label="休眠" value="sleeping" />
+        <el-option label="挂起" value="suspended" />
       </el-select>
       <el-checkbox v-model="filters.onlyBlocked">仅阻塞</el-checkbox>
       <el-checkbox v-model="filters.onlyOpenTransaction">仅打开事务</el-checkbox>
@@ -27,7 +27,7 @@
           @sort-change="handleSortChange"
         >
           <vxe-column field="session_id" title="会话" width="80" sortable />
-          <vxe-column field="status" title="状态" width="100" />
+          <vxe-column field="status" title="状态" width="100" :formatter="statusFormatter" />
           <vxe-column field="login_name" title="登录名" min-width="130" show-overflow />
           <vxe-column field="host_name" title="主机" min-width="130" show-overflow />
           <vxe-column field="database_name" title="数据库" width="120" />
@@ -76,7 +76,7 @@ import KillConfirmDialog from '@/components/KillConfirmDialog.vue';
 import SessionDetailDrawer from '@/components/SessionDetailDrawer.vue';
 import { useInstancesStore } from '@/stores/instances';
 import { useRefreshStore } from '@/stores/refresh';
-import { formatDateTime, formatDurationMs, formatNumber, staleSeconds } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus, staleSeconds } from '@/utils/format';
 
 const instancesStore = useInstancesStore();
 const refreshStore = useRefreshStore();
@@ -201,6 +201,7 @@ function handleSortChange({ field, order }: { field: string; order: string | nul
 
 const numberFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatNumber(cellValue);
 const durationFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatDurationMs(cellValue);
+const statusFormatter = ({ cellValue }: { cellValue: string | null | undefined }) => formatSessionStatus(cellValue);
 
 onMounted(async () => {
   await instancesStore.fetchInstances();

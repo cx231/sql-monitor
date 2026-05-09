@@ -13,7 +13,7 @@
       </div>
     </div>
 
-    <DataState :loading="loading" :error="error" :empty="!frame" empty-text="请选择时间查询历史 frame">
+    <DataState :loading="loading" :error="error" :empty="!frame" empty-text="请选择时间查询历史快照">
       <template v-if="frame">
         <div class="snapshot-line">
           请求时间：{{ formatDateTime(frame.requested_time) }}，命中快照：{{ formatDateTime(frame.snapshot_time) }}
@@ -42,7 +42,7 @@
           <el-tab-pane label="会话" name="sessions">
             <vxe-table :data="frame.sessions" size="small" border height="320">
               <vxe-column field="session_id" title="会话" width="80" />
-              <vxe-column field="status" title="状态" width="100" />
+              <vxe-column field="status" title="状态" width="100" :formatter="statusFormatter" />
               <vxe-column field="login_name" title="登录名" min-width="130" show-overflow />
               <vxe-column field="database_name" title="数据库" width="120" />
               <vxe-column field="wait_type" title="等待类型" width="140" show-overflow />
@@ -78,7 +78,7 @@ import type { ReplayFrameOut } from '@/api/types';
 import DataState from '@/components/DataState.vue';
 import InstanceSelector from '@/components/InstanceSelector.vue';
 import { useInstancesStore } from '@/stores/instances';
-import { formatDateTime, formatDurationMs, formatNumber } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus } from '@/utils/format';
 
 const instancesStore = useInstancesStore();
 const frame = ref<ReplayFrameOut | null>(null);
@@ -103,7 +103,7 @@ async function fetchReplay() {
     });
     frame.value = data;
   } catch {
-    error.value = '无法加载回放 frame';
+    error.value = '无法加载回放快照';
   } finally {
     loading.value = false;
   }
@@ -111,6 +111,7 @@ async function fetchReplay() {
 
 const numberFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatNumber(cellValue);
 const durationFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatDurationMs(cellValue);
+const statusFormatter = ({ cellValue }: { cellValue: string | null | undefined }) => formatSessionStatus(cellValue);
 
 onMounted(async () => {
   await instancesStore.fetchInstances();

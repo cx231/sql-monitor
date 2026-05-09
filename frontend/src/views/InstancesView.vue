@@ -25,7 +25,7 @@
               </el-tag>
             </template>
           </vxe-column>
-          <vxe-column field="has_kill_dsn" title="Kill DSN" width="100">
+          <vxe-column field="has_kill_dsn" title="终止 DSN" width="100">
             <template #default="{ row }">
               <el-tag :type="row.has_kill_dsn ? 'warning' : 'info'" effect="plain">
                 {{ row.has_kill_dsn ? '已配置' : '未配置' }}

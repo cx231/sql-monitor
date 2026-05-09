@@ -63,3 +63,19 @@ export function staleSeconds(snapshotTime: string | null | undefined): number | 
 
   return Math.max(0, Math.floor((Date.now() - time) / 1000));
 }
+
+export function formatSessionStatus(value: string | null | undefined): string {
+  const map: Record<string, string> = {
+    running: '运行中',
+    sleeping: '休眠',
+    suspended: '挂起',
+    runnable: '可运行',
+    background: '后台',
+  };
+
+  if (!value) {
+    return '-';
+  }
+
+  return map[value] ?? value;
+}
