@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
+import pytest
 from app.api.deps import current_user, get_db_session
 from app.db.models import Instance
 from app.schemas.instances import InstanceCreate, InstanceUpdate
@@ -72,11 +73,12 @@ def test_create_instance_encrypts_connection_string_and_creates_collect_status()
     result = asyncio.run(create_instance(FakeSession(), payload))
 
     assert result.name == payload.name
-    assert result.collect_dsn == payload.collect_dsn
-    assert result.kill_dsn == payload.kill_dsn
+    assert result.has_collect_dsn is True
+    assert result.has_kill_dsn is True
+    assert not hasattr(result, "collect_dsn")
+    assert not hasattr(result, "kill_dsn")
     assert result.status == payload.status
     assert result.id is not None
-    assert len(result.__class__.model_fields) > 0
 
     fake_session = FakeSession()
     asyncio.run(create_instance(fake_session, payload))
@@ -142,8 +144,10 @@ def test_list_instances_returns_instances_sorted_by_created_at_desc() -> None:
     result = asyncio.run(list_instances(FakeSession()))
 
     assert [item.name for item in result] == ["newer", "older"]
-    assert result[0].collect_dsn == "dsn-2"
-    assert result[1].collect_dsn == "dsn-1"
+    assert result[0].has_collect_dsn is True
+    assert result[1].has_collect_dsn is True
+    assert not hasattr(result[0], "collect_dsn")
+    assert not hasattr(result[1], "collect_dsn")
 
 
 def test_update_instance_updates_connection_strings_without_exposing_ciphertext() -> None:
@@ -196,10 +200,178 @@ def test_update_instance_updates_connection_strings_without_exposing_ciphertext(
     result = asyncio.run(update_instance(FakeSession(), instance.id, payload))
 
     assert result.name == "new"
-    assert result.collect_dsn == "new-dsn"
-    assert result.kill_dsn is None
+    assert result.has_collect_dsn is True
+    assert result.has_kill_dsn is False
+    assert not hasattr(result, "collect_dsn")
+    assert not hasattr(result, "kill_dsn")
     assert result.status == "offline"
     assert instance.encrypted_collect_dsn != "new-dsn"
+
+
+def test_update_instance_preserves_kill_dsn_when_not_provided() -> None:
+    instance = Instance(
+        id=uuid.uuid4(),
+        name="old",
+        host="db1",
+        port=1433,
+        database_name=None,
+        environment="prod",
+        encrypted_collect_dsn=encrypt_connection_string("old-dsn"),
+        encrypted_kill_dsn=encrypt_connection_string("old-kill-dsn"),
+        status="disabled",
+        collect_interval_seconds=5,
+        retention_days=7,
+        business_owner=None,
+        dba_owner=None,
+        sqlserver_version=None,
+    )
+    payload = InstanceUpdate(
+        name="new",
+        host="db2",
+        port=1500,
+        database_name="sqlmon",
+        environment="test",
+        status="offline",
+        collect_interval_seconds=10,
+        retention_days=30,
+        business_owner="owner",
+        dba_owner="dba",
+        sqlserver_version="SQL Server 2019",
+    )
+
+    class FakeSession:
+        async def get(self, model, instance_id):
+            return instance
+
+        async def commit(self):
+            return None
+
+        async def refresh(self, obj):
+            return None
+
+    result = asyncio.run(update_instance(FakeSession(), instance.id, payload))
+
+    assert result is not None
+    assert instance.encrypted_kill_dsn == encrypt_connection_string("old-kill-dsn")
+    assert result.has_kill_dsn is True
+    assert instance.encrypted_collect_dsn == encrypt_connection_string("old-dsn")
+
+
+def test_update_instance_clears_kill_dsn_when_explicitly_null() -> None:
+    instance = Instance(
+        id=uuid.uuid4(),
+        name="old",
+        host="db1",
+        port=1433,
+        database_name=None,
+        environment="prod",
+        encrypted_collect_dsn=encrypt_connection_string("old-dsn"),
+        encrypted_kill_dsn=encrypt_connection_string("old-kill-dsn"),
+        status="disabled",
+        collect_interval_seconds=5,
+        retention_days=7,
+        business_owner=None,
+        dba_owner=None,
+        sqlserver_version=None,
+    )
+    payload = InstanceUpdate(
+        name="new",
+        host="db2",
+        port=1500,
+        database_name="sqlmon",
+        environment="test",
+        collect_dsn="new-dsn",
+        kill_dsn=None,
+        status="offline",
+        collect_interval_seconds=10,
+        retention_days=30,
+        business_owner="owner",
+        dba_owner="dba",
+        sqlserver_version="SQL Server 2019",
+    )
+
+    class FakeSession:
+        async def get(self, model, instance_id):
+            return instance
+
+        async def commit(self):
+            return None
+
+        async def refresh(self, obj):
+            return None
+
+    result = asyncio.run(update_instance(FakeSession(), instance.id, payload))
+
+    assert result is not None
+    assert instance.encrypted_kill_dsn is None
+    assert result.has_kill_dsn is False
+
+
+def test_update_instance_only_updates_provided_fields() -> None:
+    instance = Instance(
+        id=uuid.uuid4(),
+        name="old",
+        host="db1",
+        port=1433,
+        database_name="old_db",
+        environment="prod",
+        encrypted_collect_dsn=encrypt_connection_string("old-dsn"),
+        encrypted_kill_dsn=encrypt_connection_string("old-kill-dsn"),
+        status="disabled",
+        collect_interval_seconds=5,
+        retention_days=7,
+        business_owner="old-owner",
+        dba_owner="old-dba",
+        sqlserver_version="SQL Server 2017",
+    )
+    payload = InstanceUpdate(name="new")
+
+    class FakeSession:
+        async def get(self, model, instance_id):
+            return instance
+
+        async def commit(self):
+            return None
+
+        async def refresh(self, obj):
+            return None
+
+    result = asyncio.run(update_instance(FakeSession(), instance.id, payload))
+
+    assert result is not None
+    assert instance.name == "new"
+    assert instance.host == "db1"
+    assert instance.encrypted_collect_dsn == encrypt_connection_string("old-dsn")
+    assert instance.encrypted_kill_dsn == encrypt_connection_string("old-kill-dsn")
+
+
+def test_instance_update_rejects_invalid_status() -> None:
+    with pytest.raises(Exception):
+        InstanceUpdate(
+            name="new",
+            host="db2",
+            port=1500,
+            database_name="sqlmon",
+            environment="test",
+            collect_dsn="new-dsn",
+            kill_dsn=None,
+            status="broken",
+            collect_interval_seconds=10,
+            retention_days=30,
+            business_owner="owner",
+            dba_owner="dba",
+            sqlserver_version="SQL Server 2019",
+        )
+
+
+def test_instance_create_rejects_invalid_status() -> None:
+    with pytest.raises(Exception):
+        InstanceCreate(
+            name="核心库",
+            host="db.example.com",
+            collect_dsn="dsn",
+            status="broken",
+        )
 
 
 def test_create_instance_route_requires_admin(api_client) -> None:

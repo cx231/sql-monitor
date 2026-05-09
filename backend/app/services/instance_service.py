@@ -11,18 +11,16 @@ from app.schemas.instances import InstanceCreate, InstanceOut, InstanceUpdate
 
 
 def encrypt_connection_string(connection_string: str) -> str:
+    # P0 占位实现：仅用于接口打通，后续需替换为真实加密/KMS。
     return base64.b64encode(connection_string.encode("utf-8")).decode("ascii")
 
 
 def decrypt_connection_string(encrypted_connection_string: str) -> str:
+    # P0 占位实现：仅用于接口打通，后续需替换为真实解密/KMS。
     return base64.b64decode(encrypted_connection_string.encode("ascii")).decode("utf-8")
 
 
 def _to_instance_out(instance: Instance) -> InstanceOut:
-    kill_dsn = None
-    if instance.encrypted_kill_dsn is not None:
-        kill_dsn = decrypt_connection_string(instance.encrypted_kill_dsn)
-
     return InstanceOut(
         id=instance.id,
         name=instance.name,
@@ -30,8 +28,8 @@ def _to_instance_out(instance: Instance) -> InstanceOut:
         port=instance.port,
         database_name=instance.database_name,
         environment=instance.environment,
-        collect_dsn=decrypt_connection_string(instance.encrypted_collect_dsn),
-        kill_dsn=kill_dsn,
+        has_collect_dsn=bool(instance.encrypted_collect_dsn),
+        has_kill_dsn=instance.encrypted_kill_dsn is not None,
         status=instance.status,
         collect_interval_seconds=instance.collect_interval_seconds,
         retention_days=instance.retention_days,
@@ -88,21 +86,37 @@ async def update_instance(
     if instance is None:
         return None
 
-    instance.name = data.name
-    instance.host = data.host
-    instance.port = data.port
-    instance.database_name = data.database_name
-    instance.environment = data.environment
-    instance.encrypted_collect_dsn = encrypt_connection_string(data.collect_dsn)
-    instance.encrypted_kill_dsn = encrypt_connection_string(data.kill_dsn) if data.kill_dsn else None
-    instance.status = data.status
-    instance.collect_interval_seconds = data.collect_interval_seconds
-    instance.retention_days = data.retention_days
-    instance.business_owner = data.business_owner
-    instance.dba_owner = data.dba_owner
-    instance.sqlserver_version = data.sqlserver_version
+    fields_set = data.model_fields_set
+    payload = data.model_dump(exclude_unset=True)
+
+    for field_name in (
+        "name",
+        "host",
+        "port",
+        "database_name",
+        "environment",
+        "status",
+        "collect_interval_seconds",
+        "retention_days",
+        "business_owner",
+        "dba_owner",
+        "sqlserver_version",
+    ):
+        if field_name in fields_set:
+            setattr(instance, field_name, payload[field_name])
+
+    if "collect_dsn" in fields_set:
+        collect_dsn = payload["collect_dsn"]
+        if collect_dsn is not None:
+            instance.encrypted_collect_dsn = encrypt_connection_string(collect_dsn)
+
+    if "kill_dsn" in fields_set:
+        kill_dsn = payload["kill_dsn"]
+        if kill_dsn is None:
+            instance.encrypted_kill_dsn = None
+        else:
+            instance.encrypted_kill_dsn = encrypt_connection_string(kill_dsn)
 
     await session.commit()
     await session.refresh(instance)
     return _to_instance_out(instance)
-
