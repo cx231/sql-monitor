@@ -71,6 +71,10 @@ def _install_overrides(api_client, repository):
     return app
 
 
+def _first_request(frame):
+    return frame.requests[0]
+
+
 def test_realtime_routes_require_authentication(api_client) -> None:
     instance_id = uuid.uuid4()
 
@@ -130,6 +134,35 @@ def test_session_detail_returns_not_found_when_session_missing(api_client) -> No
     app.dependency_overrides.clear()
 
 
+def test_session_detail_uses_precise_detail_lookup_not_bounded_list(api_client) -> None:
+    instance_id = uuid.uuid4()
+    frame = _frame(instance_id)
+
+    class DetailOnlyRepository(FakeSnapshotRepository):
+        async def list_sessions(self, frame):
+            return []
+
+        async def get_session(self, _frame, session_id):
+            assert session_id == 54
+            return next(item for item in frame.sessions if item.session_id == session_id)
+
+        async def list_requests(self, _frame):
+            return []
+
+        async def get_request_by_session(self, _frame, session_id):
+            assert session_id == 54
+            return next(item for item in frame.requests if item.session_id == session_id)
+
+    app = _install_overrides(api_client, DetailOnlyRepository(frame))
+
+    response = api_client.get(f"/api/sessions/54?instance_id={instance_id}")
+
+    assert response.status_code == 200
+    assert response.json()["session_id"] == 54
+    assert response.json()["blocking_session_id"] == 53
+    app.dependency_overrides.clear()
+
+
 def test_sql_routes_list_and_fetch_single_sql(api_client) -> None:
     instance_id = uuid.uuid4()
     app = _install_overrides(api_client, FakeSnapshotRepository(_frame(instance_id)))
@@ -153,6 +186,28 @@ def test_sql_detail_returns_not_found_when_hash_missing(api_client) -> None:
 
     assert response.status_code == 404
     assert response.json()["detail"] == "SQL_NOT_FOUND"
+    app.dependency_overrides.clear()
+
+
+def test_sql_detail_uses_precise_detail_lookup_not_bounded_list(api_client) -> None:
+    instance_id = uuid.uuid4()
+    frame = _frame(instance_id)
+    request = _first_request(frame)
+
+    class DetailOnlyRepository(FakeSnapshotRepository):
+        async def list_requests(self, frame):
+            return []
+
+        async def get_request_by_sql_hash(self, frame, sql_hash):
+            assert sql_hash == request.sql_hash
+            return request
+
+    app = _install_overrides(api_client, DetailOnlyRepository(frame))
+
+    response = api_client.get(f"/api/sqls/{request.sql_hash}?instance_id={instance_id}")
+
+    assert response.status_code == 200
+    assert response.json()["sql_hash"] == request.sql_hash
     app.dependency_overrides.clear()
 
 

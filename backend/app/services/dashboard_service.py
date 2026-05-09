@@ -66,6 +66,18 @@ class SnapshotRepository:
         )
         return list(result.scalars().all())
 
+    async def get_session(self, frame, session_id: int):
+        ref = frame_ref(frame)
+        result = await self.session.execute(
+            select(SessionSnapshot).where(
+                SessionSnapshot.instance_id == ref.instance_id,
+                SessionSnapshot.frame_id == ref.frame_id,
+                SessionSnapshot.snapshot_time == ref.snapshot_time,
+                SessionSnapshot.session_id == session_id,
+            )
+        )
+        return result.scalars().first()
+
     async def list_requests(self, frame):
         ref = frame_ref(frame)
         result = await self.session.execute(
@@ -78,6 +90,32 @@ class SnapshotRepository:
             .order_by(RequestSnapshot.session_id.asc(), RequestSnapshot.request_id.asc())
         )
         return list(result.scalars().all())
+
+    async def get_request_by_sql_hash(self, frame, sql_hash: str):
+        ref = frame_ref(frame)
+        result = await self.session.execute(
+            select(RequestSnapshot).where(
+                RequestSnapshot.instance_id == ref.instance_id,
+                RequestSnapshot.frame_id == ref.frame_id,
+                RequestSnapshot.snapshot_time == ref.snapshot_time,
+                RequestSnapshot.sql_hash == sql_hash,
+            )
+        )
+        return result.scalars().first()
+
+    async def get_request_by_session(self, frame, session_id: int):
+        ref = frame_ref(frame)
+        result = await self.session.execute(
+            select(RequestSnapshot)
+            .where(
+                RequestSnapshot.instance_id == ref.instance_id,
+                RequestSnapshot.frame_id == ref.frame_id,
+                RequestSnapshot.snapshot_time == ref.snapshot_time,
+                RequestSnapshot.session_id == session_id,
+            )
+            .order_by(RequestSnapshot.request_id.asc())
+        )
+        return result.scalars().first()
 
     async def list_waits(self, frame):
         ref = frame_ref(frame)

@@ -11,8 +11,8 @@ from app.services.blocking_service import get_blocking_chains
 from app.services.dashboard_service import SnapshotRepository
 from app.services.dashboard_service import get_dashboard
 from app.services.replay_service import get_replay_frame
-from app.services.session_service import list_sessions
-from app.services.sql_service import list_sqls
+from app.services.session_service import get_session_detail, list_sessions
+from app.services.sql_service import get_sql_detail, list_sqls
 
 
 class SeededSnapshotRepository:
@@ -149,6 +149,50 @@ def test_sql_list_sorts_by_wait_time_desc_and_pages() -> None:
     assert result.items[0].session_id == 54
     assert result.items[0].wait_time_ms == 38_000
     assert result.items[0].sql_preview is not None
+
+
+def test_session_detail_uses_repository_detail_lookup_when_list_is_bounded_elsewhere() -> None:
+    instance_id = uuid.uuid4()
+    frame = _seeded_frame(instance_id, datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc))
+
+    class DetailRepository(SeededSnapshotRepository):
+        async def list_sessions(self, frame):
+            return []
+
+        async def get_session(self, frame, session_id):
+            return next(item for item in self.frames[0].sessions if item.session_id == session_id)
+
+        async def list_requests(self, frame):
+            return []
+
+        async def get_request_by_session(self, frame, session_id):
+            return next(item for item in self.frames[0].requests if item.session_id == session_id)
+
+    result = asyncio.run(get_session_detail(DetailRepository([frame]), instance_id, 54))
+
+    assert result is not None
+    assert result.session_id == 54
+    assert result.blocking_session_id == 53
+    assert result.current_sql_preview is not None
+
+
+def test_sql_detail_uses_repository_detail_lookup_when_list_is_bounded_elsewhere() -> None:
+    instance_id = uuid.uuid4()
+    frame = _seeded_frame(instance_id, datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc))
+    request = frame.requests[0]
+
+    class DetailRepository(SeededSnapshotRepository):
+        async def list_requests(self, frame):
+            return []
+
+        async def get_request_by_sql_hash(self, frame, sql_hash):
+            return next(item for item in self.frames[0].requests if item.sql_hash == sql_hash)
+
+    result = asyncio.run(get_sql_detail(DetailRepository([frame]), instance_id, request.sql_hash))
+
+    assert result is not None
+    assert result.sql_hash == request.sql_hash
+    assert result.sql_preview is not None
 
 
 def test_blocking_chains_group_by_root_and_sort_by_impact_then_wait() -> None:

@@ -39,11 +39,41 @@ async def list_sqls(
     )
 
 
+async def get_sql_detail(
+    session_or_repository: Any,
+    instance_id: uuid.UUID,
+    sql_hash: str,
+    frame: Optional[Any] = None,
+) -> Optional[SqlListItem]:
+    repository = _repository(session_or_repository)
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
+        return None
+
+    request = await _get_request_by_sql_hash(repository, ref, sql_hash)
+    if request is None:
+        return None
+
+    preview_map = await _sql_preview_map(repository, [request])
+    return _to_item(request, preview_map)
+
+
 async def _load(repository: Any, frame: Any):
     method = getattr(repository, "list_requests", None)
     if method is not None:
         return await method(frame)
     return _frame_attribute(frame, "requests")
+
+
+async def _get_request_by_sql_hash(repository: Any, frame: Any, sql_hash: str):
+    method = getattr(repository, "get_request_by_sql_hash", None)
+    if method is not None:
+        return await method(frame, sql_hash)
+    requests = _frame_attribute(frame, "requests")
+    return next(
+        (request for request in requests if _get(request, "sql_hash") == sql_hash),
+        None,
+    )
 
 
 def _to_item(request: Any, preview_map: dict[str, str]) -> SqlListItem:

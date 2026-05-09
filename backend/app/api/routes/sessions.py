@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import current_user, get_db_session
 from app.db.models import User
 from app.schemas.sessions import SessionListItem, SessionListOut, SessionSortBy, SortOrder
-from app.services.session_service import list_sessions
+from app.services.dashboard_service import get_latest_frame
+from app.services.session_service import get_session_detail, list_sessions
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
 
@@ -53,17 +54,14 @@ async def get_session_route(
     session: AsyncSession = Depends(get_db_session),
     _: User = Depends(current_user),
 ) -> SessionListItem:
-    result = await list_sessions(session, instance_id, page=1, page_size=10_000)
-    if result is None:
+    frame = await get_latest_frame(session, instance_id)
+    if frame is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="LATEST_FRAME_NOT_FOUND",
         )
 
-    for item in result.items:
-        if item.session_id == session_id:
-            return item
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="SESSION_NOT_FOUND",
-    )
+    result = await get_session_detail(session, instance_id, session_id, frame=frame)
+    if result is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SESSION_NOT_FOUND")
+    return result

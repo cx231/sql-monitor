@@ -57,11 +57,53 @@ async def list_sessions(
     )
 
 
+async def get_session_detail(
+    session_or_repository: Any,
+    instance_id: uuid.UUID,
+    session_id: int,
+    frame: Optional[Any] = None,
+) -> Optional[SessionListItem]:
+    repository = _repository(session_or_repository)
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
+        return None
+
+    session = await _get_session(repository, ref, session_id)
+    if session is None:
+        return None
+
+    request = await _get_request_by_session(repository, ref, session_id)
+    preview_map = await _sql_preview_map(repository, [request] if request is not None else [])
+    return _to_item(session, request, preview_map)
+
+
 async def _load(repository: Any, frame: Any, method_name: str, attribute_name: str):
     method = getattr(repository, method_name, None)
     if method is not None:
         return await method(frame)
     return _frame_attribute(frame, attribute_name)
+
+
+async def _get_session(repository: Any, frame: Any, session_id: int):
+    method = getattr(repository, "get_session", None)
+    if method is not None:
+        return await method(frame, session_id)
+    sessions = _frame_attribute(frame, "sessions")
+    return next(
+        (session for session in sessions if _get(session, "session_id") == session_id),
+        None,
+    )
+
+
+async def _get_request_by_session(repository: Any, frame: Any, session_id: int):
+    method = getattr(repository, "get_request_by_session", None)
+    if method is not None:
+        return await method(frame, session_id)
+    requests = _frame_attribute(frame, "requests")
+    return next(
+        (request for request in requests if _get(request, "session_id") == session_id),
+        None,
+    )
 
 
 def _to_item(session: Any, request: Optional[Any], preview_map: dict[str, str]) -> SessionListItem:
