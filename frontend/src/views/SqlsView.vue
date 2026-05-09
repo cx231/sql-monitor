@@ -100,11 +100,19 @@ async function fetchSqls() {
   }
 }
 
+function resetAndFetchSqls() {
+  if (page.value === 1) {
+    void fetchSqls();
+    return;
+  }
+
+  page.value = 1;
+}
+
 function handleSortChange({ field, order }: { field: string; order: string | null }) {
   sortBy.value = field || 'cpu_time_ms';
   sortOrder.value = order === 'asc' ? 'asc' : 'desc';
-  page.value = 1;
-  void fetchSqls();
+  resetAndFetchSqls();
 }
 
 const numberFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatNumber(cellValue);
@@ -117,8 +125,7 @@ onMounted(async () => {
 });
 
 watch(() => instancesStore.currentInstance?.id, () => {
-  page.value = 1;
-  void fetchSqls();
+  resetAndFetchSqls();
 });
 watch([page, pageSize], fetchSqls);
 watch(() => refreshStore.tick, fetchSqls);

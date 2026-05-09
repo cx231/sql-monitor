@@ -138,6 +138,15 @@ async function fetchSessions() {
   }
 }
 
+function resetAndFetchSessions() {
+  if (page.value === 1) {
+    void fetchSessions();
+    return;
+  }
+
+  page.value = 1;
+}
+
 async function openDetail(row: SessionListItem) {
   const instanceId = instancesStore.currentInstance?.id;
   if (!instanceId) {
@@ -195,8 +204,7 @@ async function killSession(reason: string) {
 function handleSortChange({ field, order }: { field: string; order: string | null }) {
   sortBy.value = field || 'session_id';
   sortOrder.value = order === 'desc' ? 'desc' : 'asc';
-  page.value = 1;
-  void fetchSessions();
+  resetAndFetchSessions();
 }
 
 const numberFormatter = ({ cellValue }: { cellValue: number | null | undefined }) => formatNumber(cellValue);
@@ -209,12 +217,10 @@ onMounted(async () => {
 });
 
 watch(() => instancesStore.currentInstance?.id, () => {
-  page.value = 1;
-  void fetchSessions();
+  resetAndFetchSessions();
 });
 watch(() => [filters.status, filters.onlyBlocked, filters.onlyOpenTransaction], () => {
-  page.value = 1;
-  void fetchSessions();
+  resetAndFetchSessions();
 });
 watch([page, pageSize], fetchSessions);
 watch(() => refreshStore.tick, fetchSessions);
