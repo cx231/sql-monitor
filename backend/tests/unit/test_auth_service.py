@@ -76,6 +76,30 @@ def test_decode_access_token_rejects_missing_exp(monkeypatch) -> None:
     get_settings.cache_clear()
 
 
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {"type": "access", "role": "dba", "exp": 4_102_444_800},
+        {"sub": str(uuid.uuid4()), "role": "dba", "exp": 4_102_444_800},
+        {"sub": "", "type": "access", "role": "dba", "exp": 4_102_444_800},
+        {"sub": 123, "type": "access", "role": "dba", "exp": 4_102_444_800},
+    ],
+)
+def test_decode_access_token_rejects_invalid_subject_or_missing_type(
+    monkeypatch,
+    claims: dict[str, object],
+) -> None:
+    secret_key = "test-secret-key-with-at-least-32-bytes"
+    monkeypatch.setenv("SQLMON_SECRET_KEY", secret_key)
+    get_settings.cache_clear()
+    token = jwt.encode(claims, secret_key, algorithm=ALGORITHM)
+
+    with pytest.raises(ValueError):
+        decode_access_token(token)
+
+    get_settings.cache_clear()
+
+
 def test_decode_access_token_rejects_non_access_type(monkeypatch) -> None:
     secret_key = "test-secret-key-with-at-least-32-bytes"
     monkeypatch.setenv("SQLMON_SECRET_KEY", secret_key)
@@ -101,6 +125,11 @@ def test_non_production_settings_allow_default_secret() -> None:
 def test_production_settings_reject_weak_secret() -> None:
     with pytest.raises(ValueError):
         Settings(env="prod", secret_key="short")
+
+
+def test_production_settings_reject_default_secret() -> None:
+    with pytest.raises(ValueError):
+        Settings(env="prod", secret_key="dev-secret-key")
 
 
 def test_authenticate_user_returns_active_user_for_valid_password() -> None:
