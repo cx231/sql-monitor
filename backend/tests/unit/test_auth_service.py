@@ -3,13 +3,14 @@ from __future__ import annotations
 import asyncio
 import uuid
 
+import jwt
 import pytest
 from fastapi import HTTPException
 
 from app.api.deps import require_roles
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.models import User
-from app.security import create_access_token, decode_access_token, hash_password, verify_password
+from app.security import ALGORITHM, create_access_token, decode_access_token, hash_password, verify_password
 from app.services.auth_service import authenticate_user
 
 
@@ -39,6 +40,67 @@ def test_access_token_round_trip(monkeypatch) -> None:
     assert payload["type"] == "access"
     assert "exp" in payload
     get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("reserved_claim", ["exp", "sub", "type"])
+def test_access_token_additional_claims_cannot_override_reserved_claims(
+    monkeypatch,
+    reserved_claim: str,
+) -> None:
+    monkeypatch.setenv("SQLMON_SECRET_KEY", "test-secret-key-with-at-least-32-bytes")
+    get_settings.cache_clear()
+
+    with pytest.raises(ValueError):
+        create_access_token(
+            subject=str(uuid.uuid4()),
+            role="dba",
+            additional_claims={reserved_claim: "override"},
+        )
+
+    get_settings.cache_clear()
+
+
+def test_decode_access_token_rejects_missing_exp(monkeypatch) -> None:
+    secret_key = "test-secret-key-with-at-least-32-bytes"
+    monkeypatch.setenv("SQLMON_SECRET_KEY", secret_key)
+    get_settings.cache_clear()
+    token = jwt.encode(
+        {"sub": str(uuid.uuid4()), "type": "access", "role": "dba"},
+        secret_key,
+        algorithm=ALGORITHM,
+    )
+
+    with pytest.raises(ValueError):
+        decode_access_token(token)
+
+    get_settings.cache_clear()
+
+
+def test_decode_access_token_rejects_non_access_type(monkeypatch) -> None:
+    secret_key = "test-secret-key-with-at-least-32-bytes"
+    monkeypatch.setenv("SQLMON_SECRET_KEY", secret_key)
+    get_settings.cache_clear()
+    token = jwt.encode(
+        {"sub": str(uuid.uuid4()), "type": "refresh", "role": "dba", "exp": 4_102_444_800},
+        secret_key,
+        algorithm=ALGORITHM,
+    )
+
+    with pytest.raises(ValueError):
+        decode_access_token(token)
+
+    get_settings.cache_clear()
+
+
+def test_non_production_settings_allow_default_secret() -> None:
+    settings = Settings(env="test")
+
+    assert settings.secret_key == "dev-secret-key"
+
+
+def test_production_settings_reject_weak_secret() -> None:
+    with pytest.raises(ValueError):
+        Settings(env="prod", secret_key="short")
 
 
 def test_authenticate_user_returns_active_user_for_valid_password() -> None:
