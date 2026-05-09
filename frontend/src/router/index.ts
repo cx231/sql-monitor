@@ -1,21 +1,20 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 
+import { getAccessToken } from '@/api/client';
 import MainLayout from '@/layouts/MainLayout.vue';
-
-const placeholderView = (title: string) => ({
-  template: `
-    <section class="placeholder-view">
-      <h1>${title}</h1>
-      <p>该页面将在后续任务中实现。</p>
-    </section>
-  `,
-});
+import BlockingView from '@/views/BlockingView.vue';
+import DashboardView from '@/views/DashboardView.vue';
+import InstancesView from '@/views/InstancesView.vue';
+import LoginView from '@/views/LoginView.vue';
+import ReplayView from '@/views/ReplayView.vue';
+import SessionsView from '@/views/SessionsView.vue';
+import SqlsView from '@/views/SqlsView.vue';
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
-    component: placeholderView('登录'),
+    component: LoginView,
     meta: { title: '登录' },
   },
   {
@@ -26,37 +25,37 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'dashboard',
         name: 'dashboard',
-        component: placeholderView('仪表盘'),
+        component: DashboardView,
         meta: { title: '仪表盘' },
       },
       {
         path: 'sessions',
         name: 'sessions',
-        component: placeholderView('会话监控'),
+        component: SessionsView,
         meta: { title: '会话监控' },
       },
       {
         path: 'sqls',
         name: 'sqls',
-        component: placeholderView('SQL 分析'),
+        component: SqlsView,
         meta: { title: 'SQL 分析' },
       },
       {
         path: 'blocking',
         name: 'blocking',
-        component: placeholderView('阻塞分析'),
+        component: BlockingView,
         meta: { title: '阻塞分析' },
       },
       {
         path: 'replay',
         name: 'replay',
-        component: placeholderView('回放分析'),
+        component: ReplayView,
         meta: { title: '回放分析' },
       },
       {
         path: 'settings/instances',
         name: 'settings-instances',
-        component: placeholderView('实例设置'),
+        component: InstancesView,
         meta: { title: '实例设置' },
       },
     ],
@@ -66,6 +65,20 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to) => {
+  const loggedIn = Boolean(getAccessToken());
+
+  if (to.name !== 'login' && !loggedIn) {
+    return { name: 'login' };
+  }
+
+  if (to.name === 'login' && loggedIn) {
+    return { name: 'dashboard' };
+  }
+
+  return true;
 });
 
 router.afterEach((to) => {

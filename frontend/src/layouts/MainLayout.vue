@@ -22,6 +22,7 @@
     <el-container>
       <el-header class="main-layout__header">
         <span>{{ pageTitle }}</span>
+        <el-button text @click="logout">退出登录</el-button>
       </el-header>
       <el-main class="main-layout__content">
         <RouterView />
@@ -32,12 +33,21 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 
 const activePath = computed(() => route.path);
 const pageTitle = computed(() => String(route.meta.title ?? '监控'));
+
+async function logout() {
+  authStore.logout();
+  await router.replace('/login');
+}
 </script>
 
 <style scoped>
@@ -68,6 +78,7 @@ const pageTitle = computed(() => String(route.meta.title ?? '监控'));
 .main-layout__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   height: 56px;
   padding: 0 24px;
   background: #ffffff;
