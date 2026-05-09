@@ -1,0 +1,19 @@
+[Unit]
+Description=SQLMon API
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=sqlmon
+Group=sqlmon
+WorkingDirectory=/opt/sqlmon/backend
+EnvironmentFile=/opt/sqlmon/config/app.env
+ExecStart=/opt/sqlmon/scripts/start-api.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/sqlmon/logs/api.log
+StandardError=append:/opt/sqlmon/logs/api.log
+
+[Install]
+WantedBy=multi-user.target

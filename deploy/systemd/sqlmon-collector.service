@@ -1,0 +1,19 @@
+[Unit]
+Description=SQLMon Collector
+After=network.target postgresql.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=sqlmon
+Group=sqlmon
+WorkingDirectory=/opt/sqlmon/backend
+EnvironmentFile=/opt/sqlmon/config/app.env
+ExecStart=/opt/sqlmon/scripts/start-collector.sh
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/sqlmon/logs/collector.log
+StandardError=append:/opt/sqlmon/logs/collector.log
+
+[Install]
+WantedBy=multi-user.target
