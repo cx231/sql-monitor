@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass
 from typing import Any, Optional, Protocol
@@ -7,7 +8,7 @@ from typing import Any, Optional, Protocol
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import KillAudit
+from app.db.models import Instance, KillAudit
 from app.schemas.kill import KillResponse
 from app.services.dashboard_service import SnapshotRepository, _get
 from app.services.session_service import get_session_detail
@@ -15,6 +16,8 @@ from app.services.session_service import get_session_detail
 MIN_REASON_LENGTH = 10
 PLATFORM_LOGIN_NAMES = frozenset({"sqlmon_collect", "sqlmon_kill"})
 TERMINAL_STATUS_PARTS = ("KILLED", "ROLLBACK")
+SAFE_EXECUTION_ERROR_MESSAGE = "KILL_EXECUTION_FAILED"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -25,6 +28,17 @@ class KillTarget:
     status: Optional[str]
     open_transaction_count: int
     blocking_impact_count: int = 0
+    host_name: Optional[str] = None
+    program_name: Optional[str] = None
+    database_name: Optional[str] = None
+    current_sql_hash: Optional[str] = None
+    current_sql_preview: Optional[str] = None
+    wait_type: Optional[str] = None
+    wait_time_ms: Optional[int] = None
+    cpu_time: Optional[int] = None
+    reads: Optional[int] = None
+    writes: Optional[int] = None
+    logical_reads: Optional[int] = None
 
     def before_snapshot(self) -> dict[str, object]:
         return {
@@ -33,6 +47,17 @@ class KillTarget:
             "status": self.status,
             "open_transaction_count": self.open_transaction_count,
             "blocking_impact_count": self.blocking_impact_count,
+            "host_name": self.host_name,
+            "program_name": self.program_name,
+            "database_name": self.database_name,
+            "current_sql_hash": self.current_sql_hash,
+            "current_sql_preview": self.current_sql_preview,
+            "wait_type": self.wait_type,
+            "wait_time_ms": self.wait_time_ms,
+            "cpu_time": self.cpu_time,
+            "reads": self.reads,
+            "writes": self.writes,
+            "logical_reads": self.logical_reads,
         }
 
 
@@ -126,7 +151,27 @@ async def build_kill_target(
         status=detail.status,
         open_transaction_count=detail.open_transaction_count,
         blocking_impact_count=await _blocking_impact_count(repository, frame, session_id),
+        host_name=detail.host_name,
+        program_name=detail.program_name,
+        database_name=detail.database_name,
+        current_sql_hash=detail.current_sql_hash,
+        current_sql_preview=detail.current_sql_preview,
+        wait_type=detail.wait_type,
+        wait_time_ms=detail.wait_time_ms,
+        cpu_time=detail.cpu_time,
+        reads=detail.reads,
+        writes=detail.writes,
+        logical_reads=detail.logical_reads,
     )
+
+
+async def instance_exists(session_or_repository: Any, instance_id: uuid.UUID) -> bool:
+    method = getattr(session_or_repository, "has_instance", None)
+    if method is not None:
+        return bool(await method(instance_id))
+    if hasattr(session_or_repository, "get"):
+        return await session_or_repository.get(Instance, instance_id) is not None
+    return False
 
 
 async def kill_session(
@@ -151,9 +196,14 @@ async def kill_session(
     except KillRejectedError as exc:
         result = "rejected"
         error_message = exc.code
-    except Exception as exc:
+    except Exception:
+        logger.exception(
+            "Kill executor failed for instance_id=%s session_id=%s",
+            target.instance_id,
+            target.session_id,
+        )
         result = "failed"
-        error_message = str(exc)
+        error_message = SAFE_EXECUTION_ERROR_MESSAGE
 
     audit = await audit_store.write_kill_audit(
         operator_user_id=getattr(operator, "id", None),

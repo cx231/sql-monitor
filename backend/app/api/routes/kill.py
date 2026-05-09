@@ -12,6 +12,7 @@ from app.services.kill_service import (
     NoopKillExecutor,
     audit_rejected_kill_request,
     build_kill_target,
+    instance_exists,
     kill_session,
 )
 
@@ -25,6 +26,12 @@ async def post_kill(
     user: User = Depends(require_roles(["dba", "admin"])),
 ) -> KillResponse:
     audit_store = session if hasattr(session, "write_kill_audit") else KillAuditStore(session)
+    if not await instance_exists(session, request.instance_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="INSTANCE_NOT_FOUND",
+        )
+
     target = await build_kill_target(session, request.instance_id, request.session_id)
     if target is None:
         response = await audit_rejected_kill_request(
