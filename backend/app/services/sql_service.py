@@ -4,7 +4,7 @@ import uuid
 from typing import Any, Optional
 
 from app.schemas.sqls import SortOrder, SqlListItem, SqlListOut, SqlSortBy
-from app.services.dashboard_service import _get, _repository, _sql_preview_map
+from app.services.dashboard_service import _frame_attribute, _get, _repository, _sql_preview_map, frame_ref
 
 
 async def list_sqls(
@@ -17,11 +17,11 @@ async def list_sqls(
     frame: Optional[Any] = None,
 ) -> Optional[SqlListOut]:
     repository = _repository(session_or_repository)
-    frame = frame or await repository.get_latest_frame(instance_id)
-    if frame is None:
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
         return None
 
-    requests = list(await _load(repository, frame))
+    requests = list(await _load(repository, ref))
     preview_map = await _sql_preview_map(repository, requests)
     reverse = sort_order == "desc"
     requests.sort(key=lambda request: _sort_value(request, sort_by), reverse=reverse)
@@ -30,8 +30,8 @@ async def list_sqls(
 
     return SqlListOut(
         instance_id=instance_id,
-        frame_id=_frame_id(frame),
-        snapshot_time=frame.snapshot_time,
+        frame_id=ref.frame_id,
+        snapshot_time=ref.snapshot_time,
         page=page,
         page_size=page_size,
         total=total,
@@ -43,7 +43,7 @@ async def _load(repository: Any, frame: Any):
     method = getattr(repository, "list_requests", None)
     if method is not None:
         return await method(frame)
-    return getattr(frame, "requests", [])
+    return _frame_attribute(frame, "requests")
 
 
 def _to_item(request: Any, preview_map: dict[str, str]) -> SqlListItem:
@@ -71,7 +71,3 @@ def _to_item(request: Any, preview_map: dict[str, str]) -> SqlListItem:
 def _sort_value(request: Any, sort_by: str):
     value = _get(request, sort_by)
     return -1 if value is None else value
-
-
-def _frame_id(frame: Any):
-    return _get(frame, "frame_id") or _get(frame, "id")

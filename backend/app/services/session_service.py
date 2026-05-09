@@ -4,7 +4,7 @@ import uuid
 from typing import Any, Optional
 
 from app.schemas.sessions import SessionListItem, SessionListOut, SessionSortBy, SortOrder
-from app.services.dashboard_service import _get, _repository, _sql_preview_map
+from app.services.dashboard_service import _frame_attribute, _get, _repository, _sql_preview_map, frame_ref
 
 
 async def list_sessions(
@@ -20,12 +20,12 @@ async def list_sessions(
     frame: Optional[Any] = None,
 ) -> Optional[SessionListOut]:
     repository = _repository(session_or_repository)
-    frame = frame or await repository.get_latest_frame(instance_id)
-    if frame is None:
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
         return None
 
-    sessions = list(await _load(repository, frame, "list_sessions", "sessions"))
-    requests = list(await _load(repository, frame, "list_requests", "requests"))
+    sessions = list(await _load(repository, ref, "list_sessions", "sessions"))
+    requests = list(await _load(repository, ref, "list_requests", "requests"))
     preview_map = await _sql_preview_map(repository, requests)
     request_by_session = {_get(request, "session_id"): request for request in requests}
 
@@ -48,8 +48,8 @@ async def list_sessions(
 
     return SessionListOut(
         instance_id=instance_id,
-        frame_id=_frame_id(frame),
-        snapshot_time=frame.snapshot_time,
+        frame_id=ref.frame_id,
+        snapshot_time=ref.snapshot_time,
         page=page,
         page_size=page_size,
         total=total,
@@ -61,7 +61,7 @@ async def _load(repository: Any, frame: Any, method_name: str, attribute_name: s
     method = getattr(repository, method_name, None)
     if method is not None:
         return await method(frame)
-    return getattr(frame, attribute_name, [])
+    return _frame_attribute(frame, attribute_name)
 
 
 def _to_item(session: Any, request: Optional[Any], preview_map: dict[str, str]) -> SessionListItem:
@@ -91,7 +91,3 @@ def _to_item(session: Any, request: Optional[Any], preview_map: dict[str, str]) 
 def _sort_value(session: Any, sort_by: str):
     value = _get(session, sort_by)
     return -1 if value is None else value
-
-
-def _frame_id(frame: Any):
-    return _get(frame, "frame_id") or _get(frame, "id")

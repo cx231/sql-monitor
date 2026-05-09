@@ -5,7 +5,7 @@ from collections import defaultdict
 from typing import Any, Optional
 
 from app.schemas.blocking import BlockingChain, BlockingNode, BlockingOut, RiskLevel
-from app.services.dashboard_service import _get, _repository
+from app.services.dashboard_service import _frame_attribute, _get, _repository, frame_ref
 
 
 async def get_blocking_chains(
@@ -14,11 +14,11 @@ async def get_blocking_chains(
     frame: Optional[Any] = None,
 ) -> Optional[BlockingOut]:
     repository = _repository(session_or_repository)
-    frame = frame or await repository.get_latest_frame(instance_id)
-    if frame is None:
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
         return None
 
-    rows = list(await _load(repository, frame))
+    rows = list(await _load(repository, ref))
     grouped: dict[object, list[Any]] = defaultdict(list)
     for row in rows:
         grouped[_get(row, "root_session_id")].append(row)
@@ -52,8 +52,8 @@ async def get_blocking_chains(
     chains.sort(key=lambda chain: (chain.blocked_count, chain.max_wait_time_ms), reverse=True)
     return BlockingOut(
         instance_id=instance_id,
-        frame_id=_frame_id(frame),
-        snapshot_time=frame.snapshot_time,
+        frame_id=ref.frame_id,
+        snapshot_time=ref.snapshot_time,
         chains=chains,
     )
 
@@ -62,7 +62,7 @@ async def _load(repository: Any, frame: Any):
     method = getattr(repository, "list_blocking_rows", None)
     if method is not None:
         return await method(frame)
-    return getattr(frame, "blocking_rows", [])
+    return _frame_attribute(frame, "blocking_rows")
 
 
 def _to_node(row: Any) -> BlockingNode:
@@ -84,7 +84,3 @@ def _risk_level(blocked_count: int) -> RiskLevel:
     if blocked_count >= 2:
         return "medium"
     return "low"
-
-
-def _frame_id(frame: Any):
-    return _get(frame, "frame_id") or _get(frame, "id")

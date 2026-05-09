@@ -6,7 +6,9 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from app.collector.mock_data import build_mock_frame
+from app.db.models import SnapshotFrame
 from app.services.blocking_service import get_blocking_chains
+from app.services.dashboard_service import SnapshotRepository
 from app.services.dashboard_service import get_dashboard
 from app.services.replay_service import get_replay_frame
 from app.services.session_service import list_sessions
@@ -213,3 +215,37 @@ def test_replay_returns_none_when_nearest_prior_frame_exceeds_tolerance() -> Non
     result = asyncio.run(get_replay_frame(repository, instance_id, target_time))
 
     assert result is None
+
+
+def test_snapshot_repository_accepts_snapshot_frame_orm_without_frame_id_attribute() -> None:
+    frame = SnapshotFrame(
+        id=uuid.uuid4(),
+        instance_id=uuid.uuid4(),
+        snapshot_time=datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc),
+        collect_duration_ms=12,
+        status="success",
+    )
+
+    class FakeResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return []
+
+    class FakeSession:
+        def __init__(self):
+            self.executed = []
+
+        async def execute(self, statement):
+            self.executed.append(statement)
+            return FakeResult()
+
+    fake_session = FakeSession()
+    repository = SnapshotRepository(fake_session)
+
+    assert not hasattr(frame, "frame_id")
+    result = asyncio.run(repository.list_sessions(frame))
+
+    assert result == []
+    assert len(fake_session.executed) == 1

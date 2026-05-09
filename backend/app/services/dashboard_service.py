@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Optional
 
@@ -9,6 +10,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import BlockingSnapshot, RequestSnapshot, SessionSnapshot, SnapshotFrame, SqlText, WaitSnapshot
 from app.schemas.dashboard import DashboardMetrics, DashboardOut, TopSql, TopWait
+
+
+@dataclass(frozen=True)
+class FrameRef:
+    frame_id: uuid.UUID
+    instance_id: uuid.UUID
+    snapshot_time: datetime
+    collect_duration_ms: int = 0
+    status: Optional[str] = None
+    source: Any = None
 
 
 class SnapshotRepository:
@@ -22,7 +33,7 @@ class SnapshotRepository:
             .order_by(SnapshotFrame.snapshot_time.desc())
             .limit(1)
         )
-        return result.scalars().first()
+        return frame_ref(result.scalars().first())
 
     async def get_frame_before(
         self,
@@ -40,51 +51,55 @@ class SnapshotRepository:
             .order_by(SnapshotFrame.snapshot_time.desc())
             .limit(1)
         )
-        return result.scalars().first()
+        return frame_ref(result.scalars().first())
 
     async def list_sessions(self, frame):
+        ref = frame_ref(frame)
         result = await self.session.execute(
             select(SessionSnapshot)
             .where(
-                SessionSnapshot.instance_id == frame.instance_id,
-                SessionSnapshot.frame_id == frame.frame_id,
-                SessionSnapshot.snapshot_time == frame.snapshot_time,
+                SessionSnapshot.instance_id == ref.instance_id,
+                SessionSnapshot.frame_id == ref.frame_id,
+                SessionSnapshot.snapshot_time == ref.snapshot_time,
             )
             .order_by(SessionSnapshot.session_id.asc())
         )
         return list(result.scalars().all())
 
     async def list_requests(self, frame):
+        ref = frame_ref(frame)
         result = await self.session.execute(
             select(RequestSnapshot)
             .where(
-                RequestSnapshot.instance_id == frame.instance_id,
-                RequestSnapshot.frame_id == frame.frame_id,
-                RequestSnapshot.snapshot_time == frame.snapshot_time,
+                RequestSnapshot.instance_id == ref.instance_id,
+                RequestSnapshot.frame_id == ref.frame_id,
+                RequestSnapshot.snapshot_time == ref.snapshot_time,
             )
             .order_by(RequestSnapshot.session_id.asc(), RequestSnapshot.request_id.asc())
         )
         return list(result.scalars().all())
 
     async def list_waits(self, frame):
+        ref = frame_ref(frame)
         result = await self.session.execute(
             select(WaitSnapshot)
             .where(
-                WaitSnapshot.instance_id == frame.instance_id,
-                WaitSnapshot.frame_id == frame.frame_id,
-                WaitSnapshot.snapshot_time == frame.snapshot_time,
+                WaitSnapshot.instance_id == ref.instance_id,
+                WaitSnapshot.frame_id == ref.frame_id,
+                WaitSnapshot.snapshot_time == ref.snapshot_time,
             )
             .order_by(WaitSnapshot.total_wait_time_ms.desc())
         )
         return list(result.scalars().all())
 
     async def list_blocking_rows(self, frame):
+        ref = frame_ref(frame)
         result = await self.session.execute(
             select(BlockingSnapshot)
             .where(
-                BlockingSnapshot.instance_id == frame.instance_id,
-                BlockingSnapshot.frame_id == frame.frame_id,
-                BlockingSnapshot.snapshot_time == frame.snapshot_time,
+                BlockingSnapshot.instance_id == ref.instance_id,
+                BlockingSnapshot.frame_id == ref.frame_id,
+                BlockingSnapshot.snapshot_time == ref.snapshot_time,
             )
             .order_by(BlockingSnapshot.root_session_id.asc(), BlockingSnapshot.chain_depth.asc())
         )
@@ -100,7 +115,7 @@ class SnapshotRepository:
 
 async def get_latest_frame(session_or_repository: Any, instance_id: uuid.UUID):
     repository = _repository(session_or_repository)
-    return await repository.get_latest_frame(instance_id)
+    return frame_ref(await repository.get_latest_frame(instance_id))
 
 
 async def get_dashboard(
@@ -110,14 +125,14 @@ async def get_dashboard(
     top_limit: int = 5,
 ) -> Optional[DashboardOut]:
     repository = _repository(session_or_repository)
-    frame = frame or await repository.get_latest_frame(instance_id)
-    if frame is None:
+    ref = frame_ref(frame or await repository.get_latest_frame(instance_id))
+    if ref is None:
         return None
 
-    sessions = await _maybe_call(repository, "list_sessions", frame, "sessions")
-    requests = await _maybe_call(repository, "list_requests", frame, "requests")
-    waits = await _maybe_call(repository, "list_waits", frame, "waits")
-    blocking_rows = await _maybe_call(repository, "list_blocking_rows", frame, "blocking_rows")
+    sessions = await _maybe_call(repository, "list_sessions", ref, "sessions")
+    requests = await _maybe_call(repository, "list_requests", ref, "requests")
+    waits = await _maybe_call(repository, "list_waits", ref, "waits")
+    blocking_rows = await _maybe_call(repository, "list_blocking_rows", ref, "blocking_rows")
     preview_map = await _sql_preview_map(repository, requests)
 
     blocked_session_ids = {
@@ -168,9 +183,9 @@ async def get_dashboard(
 
     return DashboardOut(
         instance_id=instance_id,
-        frame_id=_frame_id(frame),
-        snapshot_time=frame.snapshot_time,
-        collect_delay_seconds=_collect_delay_seconds(frame.snapshot_time),
+        frame_id=ref.frame_id,
+        snapshot_time=ref.snapshot_time,
+        collect_delay_seconds=_collect_delay_seconds(ref.snapshot_time),
         metrics=metrics,
         top_waits=top_waits,
         top_cpu_sqls=top_cpu_sqls,
@@ -184,11 +199,26 @@ def _repository(session_or_repository: Any):
     return session_or_repository
 
 
+def frame_ref(frame: Optional[Any]) -> Optional[FrameRef]:
+    if frame is None:
+        return None
+    if isinstance(frame, FrameRef):
+        return frame
+    return FrameRef(
+        frame_id=_get(frame, "frame_id") or _get(frame, "id"),
+        instance_id=_get(frame, "instance_id"),
+        snapshot_time=_get(frame, "snapshot_time"),
+        collect_duration_ms=_get(frame, "collect_duration_ms") or 0,
+        status=_get(frame, "status"),
+        source=frame,
+    )
+
+
 async def _maybe_call(repository: Any, method_name: str, frame: Any, attribute_name: str):
     method = getattr(repository, method_name, None)
     if method is not None:
         return list(await method(frame))
-    return list(getattr(frame, attribute_name, []))
+    return list(_frame_attribute(frame, attribute_name))
 
 
 async def _sql_preview_map(repository: Any, requests: list[Any]) -> dict[str, str]:
@@ -240,14 +270,20 @@ def _collect_delay_seconds(snapshot_time: datetime) -> int:
     return max(int((now - snapshot_time).total_seconds()), 0)
 
 
-def _frame_id(frame: Any) -> uuid.UUID:
-    return _get(frame, "frame_id") or _get(frame, "id")
-
-
 def _get(row: Any, name: str):
     if isinstance(row, dict):
         return row.get(name)
     return getattr(row, name, None)
+
+
+def _frame_attribute(frame: Any, name: str):
+    value = getattr(frame, name, None)
+    if value is not None:
+        return value
+    source = getattr(frame, "source", None)
+    if source is None:
+        return []
+    return getattr(source, name, [])
 
 
 def _coalesce(*values):
