@@ -5,7 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import get_db_session, require_roles
+from app.api.deps import current_user, get_db_session, require_roles
 from app.db.models import User
 from app.schemas.instances import InstanceCreate, InstanceOut, InstanceUpdate
 from app.services.instance_service import create_instance, list_instances, update_instance
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/instances", tags=["instances"])
 @router.get("", response_model=list[InstanceOut])
 async def get_instances(
     session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(current_user),
 ) -> list[InstanceOut]:
     return await list_instances(session)
 
@@ -43,4 +44,3 @@ async def put_instance(
             detail="实例不存在",
         )
     return instance
-

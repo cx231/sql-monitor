@@ -150,6 +150,35 @@ def test_list_instances_returns_instances_sorted_by_created_at_desc() -> None:
     assert not hasattr(result[1], "collect_dsn")
 
 
+def test_list_instances_route_requires_authentication(api_client) -> None:
+    response = api_client.get("/api/instances")
+
+    assert response.status_code == 401
+
+
+def test_list_instances_route_allows_authenticated_user(api_client) -> None:
+    class FakeResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return []
+
+    class FakeSession:
+        async def execute(self, statement):
+            return FakeResult()
+
+    app = api_client.app
+    app.dependency_overrides[get_db_session] = lambda: FakeSession()
+    app.dependency_overrides[current_user] = lambda: _fake_user("viewer")
+
+    response = api_client.get("/api/instances")
+
+    assert response.status_code == 200
+    assert response.json() == []
+    app.dependency_overrides.clear()
+
+
 def test_update_instance_updates_connection_strings_without_exposing_ciphertext() -> None:
     instance = Instance(
         id=uuid.uuid4(),
