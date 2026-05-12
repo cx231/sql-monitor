@@ -42,6 +42,14 @@ class TopSql(BaseModel):
     sql_hash: Optional[str] = None
     normalized_sql_hash: Optional[str] = None
     sql_preview: Optional[str] = None
+    sql_text: Optional[str] = None
+
+
+class ResourceTrendPoint(BaseModel):
+    snapshot_time: datetime
+    cpu_load_percent: Optional[float] = None
+    memory_usage_percent: Optional[float] = None
+    network_rate_bytes_per_sec: Optional[float] = None
 
 
 class DashboardOut(BaseModel):
@@ -49,7 +57,9 @@ class DashboardOut(BaseModel):
     frame_id: uuid.UUID
     snapshot_time: datetime
     collect_delay_seconds: int
+    metrics_window_minutes: int = 5
     metrics: DashboardMetrics
+    resource_trends: list[ResourceTrendPoint] = []
     top_waits: list[TopWait]
     top_cpu_sqls: list[TopSql]
     top_io_sqls: list[TopSql]

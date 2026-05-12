@@ -83,9 +83,9 @@ defineProps({
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: #606266;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  color: var(--app-text-secondary);
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 
@@ -95,8 +95,8 @@ defineProps({
 
 .data-state__empty {
   min-height: 180px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 </style>

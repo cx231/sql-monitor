@@ -8,6 +8,8 @@ from pydantic import BaseModel
 class LoginRequest(BaseModel):
     username: str
     password: str
+    captcha_token: Optional[str] = None
+    captcha_code: Optional[str] = None
 
 
 class LoginResponse(BaseModel):
@@ -17,3 +19,9 @@ class LoginResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str
+
+
+class CaptchaResponse(BaseModel):
+    captcha_token: str
+    image_data_url: str
+    expires_in_seconds: int

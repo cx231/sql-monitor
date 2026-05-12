@@ -33,6 +33,21 @@ class SeededSnapshotRepository:
         ]
         return candidates[-1] if candidates else None
 
+    async def list_resource_frames(self, instance_id, since_time):
+        return [
+            frame
+            for frame in self.frames
+            if frame.instance_id == instance_id and frame.snapshot_time >= since_time
+        ]
+
+    async def get_resource_frame_before(self, instance_id, before_time):
+        candidates = [
+            frame
+            for frame in self.frames
+            if frame.instance_id == instance_id and frame.snapshot_time < before_time
+        ]
+        return candidates[-1] if candidates else None
+
 
 def _with_blocking_row(frame, **overrides):
     base = {
@@ -59,6 +74,9 @@ def _seeded_frame(instance_id, snapshot_time):
         snapshot_time=frame.snapshot_time,
         collect_duration_ms=frame.collect_duration_ms,
         status=frame.status,
+        cpu_load_percent=None,
+        memory_usage_percent=None,
+        network_bytes_total=None,
         sessions=list(frame.sessions),
         requests=list(frame.requests),
         waits=list(frame.waits),
@@ -99,6 +117,50 @@ def test_dashboard_aggregates_latest_frame_counts_and_top_lists() -> None:
     assert [wait.wait_type for wait in result.top_waits[:2]] == ["LCK_M_X", "PAGEIOLATCH_SH"]
     assert result.top_cpu_sqls[0].session_id == 52
     assert result.top_io_sqls[0].session_id == 52
+
+
+def test_dashboard_returns_resource_trends_for_selected_window() -> None:
+    instance_id = uuid.uuid4()
+    base_time = datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc)
+    old_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=10))
+    first_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=4))
+    latest_frame = _seeded_frame(instance_id, base_time)
+    old_frame.network_bytes_total = 100_000
+    first_frame.cpu_load_percent = 18.5
+    first_frame.memory_usage_percent = 62.0
+    first_frame.network_bytes_total = 1_000_000
+    latest_frame.cpu_load_percent = 24.0
+    latest_frame.memory_usage_percent = 65.5
+    latest_frame.network_bytes_total = 1_600_000
+    repository = SeededSnapshotRepository([old_frame, first_frame, latest_frame])
+
+    result = asyncio.run(get_dashboard(repository, instance_id, metrics_window_minutes=5))
+
+    assert result is not None
+    assert result.metrics_window_minutes == 5
+    assert [point.snapshot_time for point in result.resource_trends] == [
+        first_frame.snapshot_time,
+        latest_frame.snapshot_time,
+    ]
+    assert result.resource_trends[0].network_rate_bytes_per_sec == 2_500.0
+    assert result.resource_trends[1].cpu_load_percent == 24.0
+    assert result.resource_trends[1].memory_usage_percent == 65.5
+    assert result.resource_trends[1].network_rate_bytes_per_sec == 2_500.0
+
+
+def test_dashboard_treats_network_counter_reset_as_zero_rate() -> None:
+    instance_id = uuid.uuid4()
+    base_time = datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc)
+    previous_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=1))
+    latest_frame = _seeded_frame(instance_id, base_time)
+    previous_frame.network_bytes_total = 1_000_000
+    latest_frame.network_bytes_total = 900_000
+    repository = SeededSnapshotRepository([previous_frame, latest_frame])
+
+    result = asyncio.run(get_dashboard(repository, instance_id, metrics_window_minutes=5))
+
+    assert result is not None
+    assert result.resource_trends[1].network_rate_bytes_per_sec == 0.0
 
 
 def test_session_list_filters_blocked_open_transactions_and_paginates() -> None:
@@ -193,6 +255,7 @@ def test_sql_detail_uses_repository_detail_lookup_when_list_is_bounded_elsewhere
     assert result is not None
     assert result.sql_hash == request.sql_hash
     assert result.sql_preview is not None
+    assert result.sql_text == request.sql_text
 
 
 def test_blocking_chains_group_by_root_and_sort_by_impact_then_wait() -> None:

@@ -35,6 +35,14 @@ export interface SqlListItem {
   sql_hash: string | null;
   normalized_sql_hash: string | null;
   sql_preview: string | null;
+  sql_text: string | null;
+}
+
+export interface ResourceTrendPoint {
+  snapshot_time: string;
+  cpu_load_percent: number | null;
+  memory_usage_percent: number | null;
+  network_rate_bytes_per_sec: number | null;
 }
 
 export interface DashboardOut {
@@ -42,7 +50,9 @@ export interface DashboardOut {
   frame_id: string;
   snapshot_time: string;
   collect_delay_seconds: number;
+  metrics_window_minutes: number;
   metrics: DashboardMetrics;
+  resource_trends: ResourceTrendPoint[];
   top_waits: TopWait[];
   top_cpu_sqls: SqlListItem[];
   top_io_sqls: SqlListItem[];

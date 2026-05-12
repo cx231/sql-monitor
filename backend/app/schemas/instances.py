@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 InstanceStatus = Literal["online", "offline", "collect_error", "disabled"]
 
@@ -15,14 +15,22 @@ class InstanceCreate(BaseModel):
     port: int = Field(default=1433, ge=1, le=65535)
     database_name: Optional[str] = Field(default=None, max_length=128)
     environment: str = Field(default="prod", min_length=1, max_length=32)
-    collect_dsn: str = Field(min_length=1)
+    collect_dsn: Optional[str] = Field(default=None, min_length=1)
     kill_dsn: Optional[str] = None
+    username: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    password: Optional[str] = Field(default=None, min_length=1)
     status: InstanceStatus = "disabled"
     collect_interval_seconds: int = Field(default=5, ge=1)
     retention_days: int = Field(default=7, ge=1)
     business_owner: Optional[str] = Field(default=None, max_length=128)
     dba_owner: Optional[str] = Field(default=None, max_length=128)
     sqlserver_version: Optional[str] = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def require_collect_dsn_or_sql_auth(self) -> "InstanceCreate":
+        if self.collect_dsn or (self.username and self.password):
+            return self
+        raise ValueError("必须提供采集 DSN 或 SQL 认证用户密码")
 
 
 class InstanceUpdate(BaseModel):
@@ -33,6 +41,8 @@ class InstanceUpdate(BaseModel):
     environment: Optional[str] = Field(default=None, min_length=1, max_length=32)
     collect_dsn: Optional[str] = Field(default=None, min_length=1)
     kill_dsn: Optional[str] = None
+    username: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    password: Optional[str] = Field(default=None, min_length=1)
     status: Optional[InstanceStatus] = None
     collect_interval_seconds: Optional[int] = Field(default=None, ge=1)
     retention_days: Optional[int] = Field(default=None, ge=1)
@@ -60,3 +70,20 @@ class InstanceOut(BaseModel):
     sqlserver_version: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
+
+class InstanceConnectionTestRequest(BaseModel):
+    host: str = Field(min_length=1, max_length=255)
+    port: int = Field(default=1433, ge=1, le=65535)
+    database_name: Optional[str] = Field(default="master", max_length=128)
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1)
+
+
+class InstanceConnectionTestOut(BaseModel):
+    success: bool
+    sqlserver_version: Optional[str] = None
+    database_name: Optional[str] = None
+    databases: list[str] = Field(default_factory=list)
+    error_message: Optional[str] = None
+    instance: Optional[InstanceOut] = None

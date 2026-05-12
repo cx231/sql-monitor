@@ -6,6 +6,8 @@
       <el-option :value="10" label="10 秒" />
       <el-option :value="30" label="30 秒" />
       <el-option :value="60" label="60 秒" />
+      <el-option :value="120" label="120 秒" />
+      <el-option :value="300" label="300 秒" />
     </el-select>
     <el-button :icon="Refresh" @click="refreshStore.requestRefresh()">刷新</el-button>
   </div>

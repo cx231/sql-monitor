@@ -107,8 +107,8 @@ watch(() => refreshStore.tick, fetchBlocking);
 .page__toolbar,
 .chain {
   padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 
@@ -120,7 +120,7 @@ watch(() => refreshStore.tick, fetchBlocking);
 }
 
 .snapshot-line {
-  color: #606266;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 
@@ -137,10 +137,10 @@ watch(() => refreshStore.tick, fetchBlocking);
 
 .chain__header strong {
   margin-right: 12px;
-  color: #1f2937;
+  color: var(--app-text-primary);
 }
 
 .chain__header span {
-  color: #606266;
+  color: var(--app-text-secondary);
 }
 </style>

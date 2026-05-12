@@ -2,13 +2,26 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import current_user, get_db_session, require_roles
 from app.db.models import User
-from app.schemas.instances import InstanceCreate, InstanceOut, InstanceUpdate
-from app.services.instance_service import create_instance, list_instances, update_instance
+from app.schemas.instances import (
+    InstanceConnectionTestOut,
+    InstanceConnectionTestRequest,
+    InstanceCreate,
+    InstanceOut,
+    InstanceUpdate,
+)
+from app.services.instance_service import (
+    create_instance,
+    delete_instance,
+    list_instances,
+    test_existing_instance_connection,
+    test_new_instance_connection,
+    update_instance,
+)
 
 router = APIRouter(prefix="/instances", tags=["instances"])
 
@@ -30,6 +43,14 @@ async def post_instance(
     return await create_instance(session, request)
 
 
+@router.post("/test-connection", response_model=InstanceConnectionTestOut)
+async def post_instance_connection_test(
+    request: InstanceConnectionTestRequest,
+    _: User = Depends(require_roles(["admin"])),
+) -> InstanceConnectionTestOut:
+    return test_new_instance_connection(request)
+
+
 @router.put("/{instance_id}", response_model=InstanceOut)
 async def put_instance(
     instance_id: uuid.UUID,
@@ -44,3 +65,33 @@ async def put_instance(
             detail="实例不存在",
         )
     return instance
+
+
+@router.delete("/{instance_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_instance_route(
+    instance_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(require_roles(["admin"])),
+) -> Response:
+    deleted = await delete_instance(session, instance_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="实例不存在",
+        )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{instance_id}/test-connection", response_model=InstanceConnectionTestOut)
+async def post_existing_instance_connection_test(
+    instance_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db_session),
+    _: User = Depends(require_roles(["admin"])),
+) -> InstanceConnectionTestOut:
+    result = await test_existing_instance_connection(session, instance_id)
+    if result is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="实例不存在",
+        )
+    return result

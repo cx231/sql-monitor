@@ -57,7 +57,7 @@ onMounted(() => {
 }
 
 .instance-selector__label {
-  color: #606266;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 
@@ -72,6 +72,6 @@ onMounted(() => {
 }
 
 .instance-selector__option small {
-  color: #909399;
+  color: var(--app-text-disabled);
 }
 </style>

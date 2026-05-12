@@ -97,3 +97,54 @@ def test_sqlserver_client_query_uses_timeout_and_returns_dict_rows(monkeypatch) 
     assert executed["parameters"] == (51,)
     assert executed["cursor_closed"] is True
     assert executed["connection_closed"] is True
+
+
+def test_sqlserver_client_query_supports_cursors_without_timeout(monkeypatch) -> None:
+    executed = {}
+
+    class FakeCursor:
+        __slots__ = ("description",)
+
+        def __init__(self) -> None:
+            self.description = (("database_name",),)
+
+        def execute(self, sql: str, parameters: tuple[object, ...]) -> None:
+            executed["sql"] = sql
+            executed["parameters"] = parameters
+
+        def fetchall(self) -> list[tuple[str]]:
+            return [("master",)]
+
+        def close(self) -> None:
+            executed["cursor_closed"] = True
+
+    class FakeConnection:
+        def cursor(self) -> FakeCursor:
+            return FakeCursor()
+
+        def close(self) -> None:
+            executed["connection_closed"] = True
+
+    def fake_connect(connection_string: str, timeout: int) -> FakeConnection:
+        executed["connection_string"] = connection_string
+        executed["connect_timeout"] = timeout
+        return FakeConnection()
+
+    monkeypatch.setitem(
+        sys.modules,
+        "pyodbc",
+        SimpleNamespace(connect=fake_connect),
+    )
+
+    client = SqlServerClient(
+        "Driver={ODBC Driver 17 for SQL Server};Server=db01;",
+        connect_timeout_seconds=3,
+        query_timeout_seconds=7,
+    )
+
+    rows = client.query("SELECT DB_NAME() AS database_name")
+
+    assert rows == [{"database_name": "master"}]
+    assert executed["parameters"] == ()
+    assert executed["cursor_closed"] is True
+    assert executed["connection_closed"] is True

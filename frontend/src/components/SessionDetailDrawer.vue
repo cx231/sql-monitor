@@ -58,7 +58,7 @@ defineEmits<{
 
 .session-detail__title {
   margin-bottom: 8px;
-  color: #303133;
+  color: var(--app-text-primary);
   font-weight: 600;
 }
 
@@ -67,9 +67,9 @@ defineEmits<{
   overflow: auto;
   margin: 0;
   padding: 12px;
-  color: #1f2937;
-  background: #f8fafc;
-  border: 1px solid #e5e7eb;
+  color: var(--app-text-primary);
+  background: var(--app-surface-muted);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
   white-space: pre-wrap;
   word-break: break-word;

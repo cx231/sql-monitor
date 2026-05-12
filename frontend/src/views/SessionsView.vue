@@ -236,8 +236,8 @@ watch(() => refreshStore.tick, fetchSessions);
 .filters,
 .table-panel {
   padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 
@@ -260,7 +260,7 @@ watch(() => refreshStore.tick, fetchSessions);
 
 .snapshot-line {
   margin-bottom: 10px;
-  color: #606266;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 

@@ -28,7 +28,10 @@ class SqlServerClient:
         cursor = None
         try:
             cursor = connection.cursor()
-            cursor.timeout = timeout_seconds or self.query_timeout_seconds
+            try:
+                cursor.timeout = timeout_seconds or self.query_timeout_seconds
+            except AttributeError:
+                pass
             cursor.execute(sql, tuple(parameters or ()))
             columns = [column[0] for column in cursor.description or ()]
             return [dict(zip(columns, row)) for row in cursor.fetchall()]

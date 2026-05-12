@@ -131,8 +131,8 @@ watch(() => instancesStore.currentInstance?.id, () => {
 .page__toolbar,
 .replay-tabs {
   padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 
@@ -150,7 +150,7 @@ watch(() => instancesStore.currentInstance?.id, () => {
 }
 
 .snapshot-line {
-  color: #606266;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 
@@ -162,27 +162,27 @@ watch(() => instancesStore.currentInstance?.id, () => {
 
 .metric-card {
   padding: 12px;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--app-surface);
+  border: 1px solid var(--app-divider);
   border-radius: 6px;
 }
 
 .metric-card span {
   display: block;
-  color: #606266;
+  color: var(--app-text-secondary);
   font-size: 13px;
 }
 
 .metric-card strong {
   display: block;
   margin-top: 8px;
-  color: #1f2937;
+  color: var(--app-text-primary);
   font-size: 22px;
 }
 
 .chain {
   padding: 10px 12px;
-  border-bottom: 1px solid #e5e7eb;
-  color: #1f2937;
+  border-bottom: 1px solid var(--app-divider);
+  color: var(--app-text-primary);
 }
 </style>

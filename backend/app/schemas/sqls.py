@@ -34,6 +34,7 @@ class SqlListItem(BaseModel):
     sql_hash: Optional[str] = None
     normalized_sql_hash: Optional[str] = None
     sql_preview: Optional[str] = None
+    sql_text: Optional[str] = None
 
 
 class SqlListOut(BaseModel):

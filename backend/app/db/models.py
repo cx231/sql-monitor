@@ -97,6 +97,9 @@ class SnapshotFrame(Base):
     collect_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
+    cpu_load_percent: Mapped[Optional[object]] = mapped_column(Numeric(5, 2))
+    memory_usage_percent: Mapped[Optional[object]] = mapped_column(Numeric(5, 2))
+    network_bytes_total: Mapped[Optional[int]] = mapped_column(BigInteger)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

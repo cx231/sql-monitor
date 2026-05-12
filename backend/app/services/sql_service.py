@@ -4,7 +4,14 @@ import uuid
 from typing import Any, Optional
 
 from app.schemas.sqls import SortOrder, SqlListItem, SqlListOut, SqlSortBy
-from app.services.dashboard_service import _frame_attribute, _get, _repository, _sql_preview_map, frame_ref
+from app.services.dashboard_service import (
+    _frame_attribute,
+    _get,
+    _repository,
+    _sql_preview_map,
+    _sql_text_map,
+    frame_ref,
+)
 
 
 async def list_sqls(
@@ -23,6 +30,7 @@ async def list_sqls(
 
     requests = list(await _load(repository, ref))
     preview_map = await _sql_preview_map(repository, requests)
+    sql_text_map = await _sql_text_map(repository, requests)
     reverse = sort_order == "desc"
     requests.sort(key=lambda request: _sort_value(request, sort_by), reverse=reverse)
     total = len(requests)
@@ -35,7 +43,10 @@ async def list_sqls(
         page=page,
         page_size=page_size,
         total=total,
-        items=[_to_item(request, preview_map) for request in requests[start : start + page_size]],
+        items=[
+            _to_item(request, preview_map, sql_text_map)
+            for request in requests[start : start + page_size]
+        ],
     )
 
 
@@ -55,7 +66,8 @@ async def get_sql_detail(
         return None
 
     preview_map = await _sql_preview_map(repository, [request])
-    return _to_item(request, preview_map)
+    sql_text_map = await _sql_text_map(repository, [request])
+    return _to_item(request, preview_map, sql_text_map)
 
 
 async def _load(repository: Any, frame: Any):
@@ -76,7 +88,11 @@ async def _get_request_by_sql_hash(repository: Any, frame: Any, sql_hash: str):
     )
 
 
-def _to_item(request: Any, preview_map: dict[str, str]) -> SqlListItem:
+def _to_item(
+    request: Any,
+    preview_map: dict[str, str],
+    sql_text_map: dict[str, str] | None = None,
+) -> SqlListItem:
     sql_hash = _get(request, "sql_hash")
     return SqlListItem(
         session_id=_get(request, "session_id"),
@@ -95,6 +111,7 @@ def _to_item(request: Any, preview_map: dict[str, str]) -> SqlListItem:
         sql_hash=sql_hash,
         normalized_sql_hash=_get(request, "normalized_sql_hash"),
         sql_preview=preview_map.get(sql_hash),
+        sql_text=(sql_text_map or {}).get(sql_hash) or _get(request, "sql_text"),
     )
 
 
