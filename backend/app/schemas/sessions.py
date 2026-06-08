@@ -33,6 +33,7 @@ class SessionListOut(BaseModel):
     instance_id: uuid.UUID
     frame_id: uuid.UUID
     snapshot_time: datetime
+    collect_delay_seconds: int
     page: int = Field(ge=1)
     page_size: int = Field(ge=1)
     total: int

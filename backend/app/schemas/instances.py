@@ -21,6 +21,9 @@ class InstanceCreate(BaseModel):
     password: Optional[str] = Field(default=None, min_length=1)
     status: InstanceStatus = "disabled"
     collect_interval_seconds: int = Field(default=5, ge=1)
+    missing_index_collect_interval_seconds: int = Field(default=600, ge=60)
+    index_fragmentation_collect_interval_seconds: int = Field(default=600, ge=60)
+    index_operation_timeout_seconds: int = Field(default=1800, ge=30, le=7200)
     retention_days: int = Field(default=7, ge=1)
     business_owner: Optional[str] = Field(default=None, max_length=128)
     dba_owner: Optional[str] = Field(default=None, max_length=128)
@@ -45,6 +48,9 @@ class InstanceUpdate(BaseModel):
     password: Optional[str] = Field(default=None, min_length=1)
     status: Optional[InstanceStatus] = None
     collect_interval_seconds: Optional[int] = Field(default=None, ge=1)
+    missing_index_collect_interval_seconds: Optional[int] = Field(default=None, ge=60)
+    index_fragmentation_collect_interval_seconds: Optional[int] = Field(default=None, ge=60)
+    index_operation_timeout_seconds: Optional[int] = Field(default=None, ge=30, le=7200)
     retention_days: Optional[int] = Field(default=None, ge=1)
     business_owner: Optional[str] = Field(default=None, max_length=128)
     dba_owner: Optional[str] = Field(default=None, max_length=128)
@@ -64,10 +70,19 @@ class InstanceOut(BaseModel):
     has_kill_dsn: bool
     status: str
     collect_interval_seconds: int
+    missing_index_collect_interval_seconds: int
+    index_fragmentation_collect_interval_seconds: int
+    index_operation_timeout_seconds: int
     retention_days: int
     business_owner: Optional[str] = None
     dba_owner: Optional[str] = None
     sqlserver_version: Optional[str] = None
+    collect_status: Optional[str] = None
+    last_success_at: Optional[datetime] = None
+    last_failure_at: Optional[datetime] = None
+    last_duration_ms: Optional[int] = None
+    consecutive_failures: int = 0
+    collect_error_message: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

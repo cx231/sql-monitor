@@ -20,7 +20,13 @@
       <AutoRefreshControl />
     </div>
 
-    <DataState :loading="loading && !dashboard" :error="error" :empty="!dashboard" :stale="isStale">
+    <DataState
+      :loading="loading && !dashboard"
+      :error="error"
+      :empty="!dashboard"
+      :stale="isStale"
+      :stale-text="staleText"
+    >
       <template v-if="dashboard">
         <div class="snapshot-line">
           快照时间：{{ formatDateTime(dashboard.snapshot_time) }}，采集延迟：
@@ -134,7 +140,8 @@ import DataState from '@/components/DataState.vue';
 import InstanceSelector from '@/components/InstanceSelector.vue';
 import { useInstancesStore } from '@/stores/instances';
 import { useRefreshStore } from '@/stores/refresh';
-import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus, staleSeconds } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus } from '@/utils/format';
+import { isRealtimeStale, realtimeStaleText } from '@/utils/realtimeFreshness';
 
 const instancesStore = useInstancesStore();
 const refreshStore = useRefreshStore();
@@ -145,11 +152,13 @@ const metricsWindowMinutes = ref(5);
 
 const cpuChartRef = ref<HTMLDivElement | null>(null);
 const memoryChartRef = ref<HTMLDivElement | null>(null);
-const networkChartRef = ref<HTMLDivElement | null>(null);
+const networkSendChartRef = ref<HTMLDivElement | null>(null);
+const networkReceiveChartRef = ref<HTMLDivElement | null>(null);
 const charts: Partial<Record<ResourceChartKey, echarts.ECharts>> = {};
 const setCpuChartRef = setChartRef('cpu', cpuChartRef);
 const setMemoryChartRef = setChartRef('memory', memoryChartRef);
-const setNetworkChartRef = setChartRef('network', networkChartRef);
+const setNetworkSendChartRef = setChartRef('networkSend', networkSendChartRef);
+const setNetworkReceiveChartRef = setChartRef('networkReceive', networkReceiveChartRef);
 
 const sqlDetailVisible = ref(false);
 const sqlDetailLoading = ref(false);
@@ -157,7 +166,7 @@ const sqlDetailError = ref('');
 const sqlDetailTitle = ref('SQL 详情');
 const sqlDetail = ref<SqlListItem | null>(null);
 
-type ResourceChartKey = 'cpu' | 'memory' | 'network';
+type ResourceChartKey = 'cpu' | 'memory' | 'networkSend' | 'networkReceive';
 
 const metrics = computed(() => {
   const data = dashboard.value?.metrics;
@@ -197,11 +206,18 @@ const resourceCards = computed(() => [
     setRef: setMemoryChartRef,
   },
   {
-    key: 'network' as const,
-    title: '网络速率',
+    key: 'networkSend' as const,
+    title: '网络传送速率',
     subtitle: `最近 ${metricsWindowMinutes.value} 分钟`,
-    current: formatNetworkRate(latestResourcePoint.value?.network_rate_bytes_per_sec),
-    setRef: setNetworkChartRef,
+    current: formatNetworkRate(latestResourcePoint.value?.network_send_rate_bytes_per_sec),
+    setRef: setNetworkSendChartRef,
+  },
+  {
+    key: 'networkReceive' as const,
+    title: '网络接收速率',
+    subtitle: `最近 ${metricsWindowMinutes.value} 分钟`,
+    current: formatNetworkRate(latestResourcePoint.value?.network_receive_rate_bytes_per_sec),
+    setRef: setNetworkReceiveChartRef,
   },
 ]);
 
@@ -230,9 +246,9 @@ const sqlDetailFields = computed(() => {
 });
 
 const isStale = computed(() => {
-  const seconds = staleSeconds(dashboard.value?.snapshot_time);
-  return seconds !== null && seconds > 60;
+  return isRealtimeStale(dashboard.value?.collect_delay_seconds);
 });
+const staleText = computed(() => realtimeStaleText(instancesStore.currentInstance));
 
 async function fetchDashboard() {
   const instanceId = instancesStore.currentInstance?.id;
@@ -243,6 +259,7 @@ async function fetchDashboard() {
   loading.value = true;
   error.value = '';
   try {
+    await instancesStore.fetchInstances();
     const { data } = await apiClient.get<DashboardOut>('/dashboard', {
       params: {
         instance_id: instanceId,
@@ -293,7 +310,22 @@ function updateCharts() {
   const trends = dashboard.value?.resource_trends ?? [];
   renderChart('cpu', cpuChartRef.value, 'CPU 负载', trends, 'cpu_load_percent', '%');
   renderChart('memory', memoryChartRef.value, '内存使用率', trends, 'memory_usage_percent', '%');
-  renderChart('network', networkChartRef.value, '网络速率', trends, 'network_rate_bytes_per_sec', 'rate');
+  renderChart(
+    'networkSend',
+    networkSendChartRef.value,
+    '网络传送速率',
+    trends,
+    'network_send_rate_bytes_per_sec',
+    'rate',
+  );
+  renderChart(
+    'networkReceive',
+    networkReceiveChartRef.value,
+    '网络接收速率',
+    trends,
+    'network_receive_rate_bytes_per_sec',
+    'rate',
+  );
 }
 
 function renderChart(
@@ -301,7 +333,13 @@ function renderChart(
   element: HTMLDivElement | null,
   name: string,
   trends: ResourceTrendPoint[],
-  field: keyof Pick<ResourceTrendPoint, 'cpu_load_percent' | 'memory_usage_percent' | 'network_rate_bytes_per_sec'>,
+  field: keyof Pick<
+    ResourceTrendPoint,
+    | 'cpu_load_percent'
+    | 'memory_usage_percent'
+    | 'network_send_rate_bytes_per_sec'
+    | 'network_receive_rate_bytes_per_sec'
+  >,
   unit: '%' | 'rate',
 ) {
   if (!element) {
@@ -315,7 +353,15 @@ function renderChart(
 
   chart.setOption({
     animation: false,
-    color: [key === 'cpu' ? colors.primary : key === 'memory' ? colors.success : colors.info],
+    color: [
+      key === 'cpu'
+        ? colors.primary
+        : key === 'memory'
+          ? colors.success
+          : key === 'networkSend'
+            ? colors.warning
+            : colors.info,
+    ],
     grid: { top: 16, right: 16, bottom: 26, left: 44 },
     tooltip: {
       trigger: 'axis',
@@ -395,6 +441,7 @@ function readThemeColors() {
     primary: styles.getPropertyValue('--app-primary').trim(),
     success: styles.getPropertyValue('--app-success').trim(),
     info: styles.getPropertyValue('--app-info').trim(),
+    warning: styles.getPropertyValue('--app-warning').trim(),
     divider: styles.getPropertyValue('--app-divider').trim(),
     secondary: styles.getPropertyValue('--app-text-secondary').trim(),
   };
@@ -542,7 +589,7 @@ watch(() => document.documentElement.dataset.theme, () => {
 
 .resource-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 

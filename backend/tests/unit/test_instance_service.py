@@ -8,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from app.api.deps import current_user, get_db_session
-from app.db.models import Instance
+from app.db.models import Instance, InstanceCollectStatus
 from app.schemas.instances import InstanceConnectionTestRequest, InstanceCreate, InstanceUpdate
 from app.services.instance_service import (
     CONNECTION_TEST_SQL,
@@ -379,6 +379,9 @@ def test_create_instance_encrypts_connection_string_and_creates_collect_status()
         kill_dsn="Driver={ODBC Driver 18 for SQL Server};Server=db.example.com,1433;Database=sqlmon;",
         status="disabled",
         collect_interval_seconds=30,
+        missing_index_collect_interval_seconds=600,
+        index_fragmentation_collect_interval_seconds=900,
+        index_operation_timeout_seconds=2400,
         retention_days=14,
         business_owner="业务负责人",
         dba_owner="DBA",
@@ -408,6 +411,9 @@ def test_create_instance_encrypts_connection_string_and_creates_collect_status()
     assert not hasattr(result, "collect_dsn")
     assert not hasattr(result, "kill_dsn")
     assert result.status == payload.status
+    assert result.missing_index_collect_interval_seconds == 600
+    assert result.index_fragmentation_collect_interval_seconds == 900
+    assert result.index_operation_timeout_seconds == 2400
     assert result.id is not None
 
     fake_session = FakeSession()
@@ -519,6 +525,60 @@ def test_list_instances_returns_instances_sorted_by_created_at_desc() -> None:
     assert not hasattr(result[1], "collect_dsn")
 
 
+def test_list_instances_includes_collect_status_for_staleness_diagnosis() -> None:
+    instance_id = uuid.uuid4()
+    instance = Instance(
+        id=instance_id,
+        name="prod",
+        host="db1",
+        port=1433,
+        database_name=None,
+        environment="prod",
+        encrypted_collect_dsn=encrypt_connection_string("dsn-1"),
+        encrypted_kill_dsn=None,
+        status="collect_error",
+        collect_interval_seconds=5,
+        retention_days=7,
+        business_owner=None,
+        dba_owner=None,
+        sqlserver_version=None,
+    )
+    collect_status = InstanceCollectStatus(
+        instance_id=instance_id,
+        last_success_at=datetime(2026, 5, 14, 8, 0, tzinfo=timezone.utc),
+        last_failure_at=datetime(2026, 5, 14, 8, 5, tzinfo=timezone.utc),
+        last_duration_ms=1234,
+        consecutive_failures=3,
+        status="failed",
+        error_message="采集失败",
+    )
+
+    class FakeResult:
+        def scalars(self):
+            return self
+
+        def all(self):
+            return [instance]
+
+    class FakeSession:
+        async def execute(self, statement):
+            return FakeResult()
+
+        async def get(self, model, key):
+            assert model is InstanceCollectStatus
+            assert key == instance_id
+            return collect_status
+
+    result = asyncio.run(list_instances(FakeSession()))
+
+    assert result[0].collect_status == "failed"
+    assert result[0].last_success_at == datetime(2026, 5, 14, 8, 0, tzinfo=timezone.utc)
+    assert result[0].last_failure_at == datetime(2026, 5, 14, 8, 5, tzinfo=timezone.utc)
+    assert result[0].last_duration_ms == 1234
+    assert result[0].consecutive_failures == 3
+    assert result[0].collect_error_message == "采集失败"
+
+
 def test_list_instances_hides_disabled_instances() -> None:
     active = Instance(
         id=uuid.uuid4(),
@@ -625,6 +685,9 @@ def test_update_instance_updates_connection_strings_without_exposing_ciphertext(
         kill_dsn=None,
         status="offline",
         collect_interval_seconds=10,
+        missing_index_collect_interval_seconds=1200,
+        index_fragmentation_collect_interval_seconds=1800,
+        index_operation_timeout_seconds=3600,
         retention_days=30,
         business_owner="owner",
         dba_owner="dba",
@@ -653,7 +716,46 @@ def test_update_instance_updates_connection_strings_without_exposing_ciphertext(
     assert not hasattr(result, "collect_dsn")
     assert not hasattr(result, "kill_dsn")
     assert result.status == "offline"
+    assert result.missing_index_collect_interval_seconds == 1200
+    assert result.index_fragmentation_collect_interval_seconds == 1800
+    assert result.index_operation_timeout_seconds == 3600
     assert instance.encrypted_collect_dsn != "new-dsn"
+
+
+def test_create_instance_defaults_index_collection_intervals_to_ten_minutes() -> None:
+    payload = InstanceCreate(
+        name="核心库",
+        host="192.168.1.26",
+        database_name="master",
+        username="sa",
+        password="secret-password",
+        status="offline",
+    )
+
+    class FakeSession:
+        def __init__(self):
+            self.added = []
+
+        def add(self, obj):
+            self.added.append(obj)
+
+        async def commit(self):
+            return None
+
+        async def refresh(self, obj):
+            return None
+
+    fake_session = FakeSession()
+
+    result = asyncio.run(create_instance(fake_session, payload))
+
+    stored_instance = fake_session.added[0]
+    assert stored_instance.missing_index_collect_interval_seconds == 600
+    assert stored_instance.index_fragmentation_collect_interval_seconds == 600
+    assert stored_instance.index_operation_timeout_seconds == 1800
+    assert result.missing_index_collect_interval_seconds == 600
+    assert result.index_fragmentation_collect_interval_seconds == 600
+    assert result.index_operation_timeout_seconds == 1800
 
 
 def test_update_instance_preserves_kill_dsn_when_not_provided() -> None:

@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from app.schemas.sqls import SortOrder, SqlListItem, SqlListOut, SqlSortBy
 from app.services.dashboard_service import (
+    _collect_delay_seconds,
     _frame_attribute,
     _get,
     _repository,
@@ -40,6 +41,7 @@ async def list_sqls(
         instance_id=instance_id,
         frame_id=ref.frame_id,
         snapshot_time=ref.snapshot_time,
+        collect_delay_seconds=_collect_delay_seconds(ref.snapshot_time),
         page=page,
         page_size=page_size,
         total=total,

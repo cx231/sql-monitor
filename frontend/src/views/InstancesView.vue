@@ -50,6 +50,15 @@
           <vxe-column field="collect_interval_seconds" title="采集间隔" width="100">
             <template #default="{ row }">{{ row.collect_interval_seconds }} 秒</template>
           </vxe-column>
+          <vxe-column field="missing_index_collect_interval_seconds" title="缺失索引间隔" width="130">
+            <template #default="{ row }">{{ formatMinutes(row.missing_index_collect_interval_seconds) }}</template>
+          </vxe-column>
+          <vxe-column field="index_fragmentation_collect_interval_seconds" title="碎片采集间隔" width="130">
+            <template #default="{ row }">{{ formatMinutes(row.index_fragmentation_collect_interval_seconds) }}</template>
+          </vxe-column>
+          <vxe-column field="index_operation_timeout_seconds" title="DDL 超时" width="120">
+            <template #default="{ row }">{{ formatMinutes(row.index_operation_timeout_seconds) }}</template>
+          </vxe-column>
           <vxe-column field="retention_days" title="保留天数" width="100">
             <template #default="{ row }">{{ row.retention_days }} 天</template>
           </vxe-column>
@@ -178,6 +187,36 @@
                   class="port-input"
                 />
               </el-form-item>
+              <el-form-item label="缺失索引采集间隔（分钟）" prop="missing_index_collect_interval_seconds">
+                <el-input-number
+                  :model-value="secondsToMinutes(createForm.missing_index_collect_interval_seconds)"
+                  :min="1"
+                  :max="1440"
+                  :controls="false"
+                  class="port-input"
+                  @update:model-value="createForm.missing_index_collect_interval_seconds = minutesToSeconds($event)"
+                />
+              </el-form-item>
+              <el-form-item label="索引碎片采集间隔（分钟）" prop="index_fragmentation_collect_interval_seconds">
+                <el-input-number
+                  :model-value="secondsToMinutes(createForm.index_fragmentation_collect_interval_seconds)"
+                  :min="1"
+                  :max="1440"
+                  :controls="false"
+                  class="port-input"
+                  @update:model-value="createForm.index_fragmentation_collect_interval_seconds = minutesToSeconds($event)"
+                />
+              </el-form-item>
+              <el-form-item label="DDL 执行超时（分钟）" prop="index_operation_timeout_seconds">
+                <el-input-number
+                  :model-value="secondsToMinutes(createForm.index_operation_timeout_seconds)"
+                  :min="1"
+                  :max="120"
+                  :controls="false"
+                  class="port-input"
+                  @update:model-value="createForm.index_operation_timeout_seconds = minutesToSeconds($event)"
+                />
+              </el-form-item>
               <el-form-item label="保留天数" prop="retention_days">
                 <el-input-number
                   v-model="createForm.retention_days"
@@ -275,6 +314,9 @@ const createForm = reactive<InstanceConnectionForm>({
   username: '',
   password: '',
   collect_interval_seconds: 5,
+  missing_index_collect_interval_seconds: 600,
+  index_fragmentation_collect_interval_seconds: 600,
+  index_operation_timeout_seconds: 1800,
   retention_days: 7,
   business_owner: '',
   dba_owner: '',
@@ -318,6 +360,9 @@ const createRules: FormRules<InstanceConnectionForm> = {
     },
   ],
   collect_interval_seconds: [{ required: true, message: '请输入采集间隔', trigger: 'change' }],
+  missing_index_collect_interval_seconds: [{ required: true, message: '请输入缺失索引采集间隔', trigger: 'change' }],
+  index_fragmentation_collect_interval_seconds: [{ required: true, message: '请输入索引碎片采集间隔', trigger: 'change' }],
+  index_operation_timeout_seconds: [{ required: true, message: '请输入 DDL 执行超时', trigger: 'change' }],
   retention_days: [{ required: true, message: '请输入保留天数', trigger: 'change' }],
 };
 
@@ -387,6 +432,9 @@ function openEditDialog(row: InstanceItem) {
   createForm.username = '';
   createForm.password = '';
   createForm.collect_interval_seconds = row.collect_interval_seconds;
+  createForm.missing_index_collect_interval_seconds = row.missing_index_collect_interval_seconds;
+  createForm.index_fragmentation_collect_interval_seconds = row.index_fragmentation_collect_interval_seconds;
+  createForm.index_operation_timeout_seconds = row.index_operation_timeout_seconds;
   createForm.retention_days = row.retention_days;
   createForm.business_owner = row.business_owner || '';
   createForm.dba_owner = row.dba_owner || '';
@@ -430,6 +478,9 @@ function resetCreateDialog() {
   createForm.username = '';
   createForm.password = '';
   createForm.collect_interval_seconds = 5;
+  createForm.missing_index_collect_interval_seconds = 600;
+  createForm.index_fragmentation_collect_interval_seconds = 600;
+  createForm.index_operation_timeout_seconds = 1800;
   createForm.retention_days = 7;
   createForm.business_owner = '';
   createForm.dba_owner = '';
@@ -587,6 +638,18 @@ function statusTag(status: string) {
 }
 
 const dateFormatter = ({ cellValue }: { cellValue: string | null | undefined }) => formatDateTime(cellValue);
+
+function secondsToMinutes(seconds: number | null | undefined) {
+  return Math.max(1, Math.round((seconds ?? 600) / 60));
+}
+
+function minutesToSeconds(minutes: number | null | undefined) {
+  return Math.max(60, Math.round(minutes ?? 10) * 60);
+}
+
+function formatMinutes(seconds: number | null | undefined) {
+  return `${secondsToMinutes(seconds)} 分钟`;
+}
 
 function resetAutoTestTimer() {
   if (autoTestTimer) {

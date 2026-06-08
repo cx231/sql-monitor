@@ -40,6 +40,31 @@ class SqlServerClient:
                 cursor.close()
             connection.close()
 
+    def execute(
+        self,
+        sql: str,
+        parameters: Optional[Sequence[Any]] = None,
+        timeout_seconds: Optional[int] = None,
+    ) -> None:
+        pyodbc = _load_pyodbc()
+        connection = pyodbc.connect(
+            self.connection_string,
+            timeout=self.connect_timeout_seconds,
+        )
+        cursor = None
+        try:
+            cursor = connection.cursor()
+            try:
+                cursor.timeout = timeout_seconds or self.query_timeout_seconds
+            except AttributeError:
+                pass
+            cursor.execute(sql, tuple(parameters or ()))
+            connection.commit()
+        finally:
+            if cursor is not None:
+                cursor.close()
+            connection.close()
+
 
 def _load_pyodbc() -> Any:
     try:

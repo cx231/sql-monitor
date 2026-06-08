@@ -42,7 +42,8 @@ export interface ResourceTrendPoint {
   snapshot_time: string;
   cpu_load_percent: number | null;
   memory_usage_percent: number | null;
-  network_rate_bytes_per_sec: number | null;
+  network_send_rate_bytes_per_sec: number | null;
+  network_receive_rate_bytes_per_sec: number | null;
 }
 
 export interface DashboardOut {
@@ -83,6 +84,7 @@ export interface PageOut<T> {
   instance_id: string;
   frame_id: string;
   snapshot_time: string;
+  collect_delay_seconds: number;
   page: number;
   page_size: number;
   total: number;
@@ -114,6 +116,7 @@ export interface BlockingOut {
   instance_id: string;
   frame_id: string;
   snapshot_time: string;
+  collect_delay_seconds: number;
   chains: BlockingChain[];
 }
 
@@ -136,6 +139,151 @@ export interface KillResponse {
   session_id: number;
   result: 'success' | 'failed' | 'rejected';
   error_message: string | null;
+}
+
+export interface IndexDatabaseListOut {
+  instance_id: string;
+  databases: string[];
+}
+
+export interface MissingIndexItem {
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  equality_columns: string[];
+  inequality_columns: string[];
+  include_columns: string[];
+  user_seeks: number;
+  user_scans: number;
+  avg_total_user_cost: number;
+  avg_user_impact: number;
+  recommended_index_name: string;
+  create_enabled: boolean;
+  error_message: string | null;
+}
+
+export interface MissingIndexListOut {
+  instance_id: string;
+  database_name: string;
+  checked_at: string | null;
+  collection_status: string;
+  collection_error: string | null;
+  stale: boolean;
+  page: number;
+  page_size: number;
+  total: number;
+  items: MissingIndexItem[];
+}
+
+export type IndexCreateResult = 'running' | 'success' | 'failed' | 'rejected';
+
+export interface IndexCreatePayload {
+  instance_id: string;
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  key_columns: string[];
+  include_columns: string[];
+  index_name: string;
+}
+
+export interface IndexCreateResponse {
+  audit_id: string;
+  instance_id: string;
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  index_name: string;
+  result: IndexCreateResult;
+  error_message: string | null;
+}
+
+export type IndexFragmentationAction = 'NONE' | 'REORGANIZE' | 'REBUILD';
+
+export interface IndexFragmentationItem {
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  index_name: string;
+  index_type: string;
+  partition_number: number;
+  avg_fragmentation_in_percent: number;
+  page_count: number;
+  recommended_action: IndexFragmentationAction;
+  action_enabled: boolean;
+  online_rebuild_supported: boolean;
+  error_message: string | null;
+}
+
+export interface IndexFragmentationListOut {
+  instance_id: string;
+  database_name: string;
+  checked_at: string | null;
+  collection_status: string;
+  collection_error: string | null;
+  stale: boolean;
+  online_rebuild_supported: boolean;
+  page: number;
+  page_size: number;
+  total: number;
+  items: IndexFragmentationItem[];
+}
+
+export interface IndexFragmentationActionResponse {
+  audit_id: string;
+  instance_id: string;
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  index_name: string;
+  partition_number: number;
+  action: 'REORGANIZE' | 'REBUILD';
+  online_used: boolean;
+  result: IndexCreateResult;
+  error_message: string | null;
+}
+
+export interface IndexAuditOut {
+  audit_id: string;
+  instance_id: string;
+  database_name: string;
+  schema_name: string;
+  table_name: string;
+  index_name: string;
+  action: string;
+  result: IndexCreateResult;
+  error_message: string | null;
+  created_at: string | null;
+}
+
+export type UserRole = 'viewer' | 'developer' | 'dba' | 'admin';
+export type UserStatus = 'active' | 'disabled';
+
+export interface UserItem {
+  id: string;
+  username: string;
+  display_name: string | null;
+  role: UserRole;
+  status: UserStatus;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface UserCreatePayload {
+  username: string;
+  password: string;
+  display_name: string | null;
+  role: UserRole;
+}
+
+export interface UserUpdatePayload {
+  display_name: string | null;
+  role: UserRole;
+  status: UserStatus;
+}
+
+export interface UserPasswordResetPayload {
+  password: string;
 }
 
 export type { InstanceItem };

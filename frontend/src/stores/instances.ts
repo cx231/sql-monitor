@@ -14,10 +14,19 @@ export interface InstanceItem {
   has_kill_dsn: boolean;
   status: string;
   collect_interval_seconds: number;
+  missing_index_collect_interval_seconds: number;
+  index_fragmentation_collect_interval_seconds: number;
+  index_operation_timeout_seconds: number;
   retention_days: number;
   business_owner: string | null;
   dba_owner: string | null;
   sqlserver_version: string | null;
+  collect_status: string | null;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  last_duration_ms: number | null;
+  consecutive_failures: number;
+  collect_error_message: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -30,6 +39,9 @@ export interface InstanceConnectionForm {
   username: string;
   password: string;
   collect_interval_seconds: number;
+  missing_index_collect_interval_seconds: number;
+  index_fragmentation_collect_interval_seconds: number;
+  index_operation_timeout_seconds: number;
   retention_days: number;
   business_owner: string;
   dba_owner: string;
@@ -88,6 +100,9 @@ export const useInstancesStore = defineStore('instances', {
         username: form.username,
         password: form.password,
         collect_interval_seconds: form.collect_interval_seconds,
+        missing_index_collect_interval_seconds: form.missing_index_collect_interval_seconds,
+        index_fragmentation_collect_interval_seconds: form.index_fragmentation_collect_interval_seconds,
+        index_operation_timeout_seconds: form.index_operation_timeout_seconds,
         retention_days: form.retention_days,
         business_owner: form.business_owner || null,
         dba_owner: form.dba_owner || null,
@@ -109,6 +124,9 @@ export const useInstancesStore = defineStore('instances', {
         port: form.port,
         database_name: form.database_name || 'master',
         collect_interval_seconds: form.collect_interval_seconds,
+        missing_index_collect_interval_seconds: form.missing_index_collect_interval_seconds,
+        index_fragmentation_collect_interval_seconds: form.index_fragmentation_collect_interval_seconds,
+        index_operation_timeout_seconds: form.index_operation_timeout_seconds,
         retention_days: form.retention_days,
         business_owner: form.business_owner || null,
         dba_owner: form.dba_owner || null,

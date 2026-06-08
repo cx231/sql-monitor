@@ -85,13 +85,16 @@
 import {
   Clock,
   Connection,
+  DataAnalysis,
   DataLine,
   Document,
+  Finished,
   Expand,
   Fold,
   Setting,
   SwitchButton,
   User,
+  UserFilled,
   VideoPlay,
   Warning,
 } from '@element-plus/icons-vue';
@@ -143,8 +146,11 @@ const navigationItems = [
   { path: '/sessions', label: '会话监控', icon: Connection },
   { path: '/sqls', label: 'SQL 分析', icon: Document },
   { path: '/blocking', label: '阻塞分析', icon: Warning },
+  { path: '/indexes/missing', label: '缺失索引', icon: Finished },
+  { path: '/indexes/fragmentation', label: '索引碎片', icon: DataAnalysis },
   { path: '/replay', label: '回放分析', icon: VideoPlay },
   { path: '/settings/instances', label: '实例设置', icon: Setting },
+  { path: '/settings/users', label: '用户管理', icon: UserFilled },
 ];
 
 function toggleSidebar() {

@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     default_retention_days: int = 7
     collect_connect_timeout_seconds: int = 5
     collect_query_timeout_seconds: int = 3
+    index_collect_database_concurrency: int = Field(default=4, ge=1, le=16)
+    index_collect_database_timeout_seconds: int = Field(default=300, ge=1, le=3600)
     min_killable_session_id: int = Field(default=50, ge=1)
 
     @property

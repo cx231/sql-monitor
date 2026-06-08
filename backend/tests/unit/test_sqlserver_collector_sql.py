@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from types import SimpleNamespace
 
+from app.collector.collectors.resource_collector import RESOURCE_SQL
 from app.collector.collectors.session_request_collector import SESSION_REQUEST_SQL
 from app.collector.collectors.wait_collector import WAIT_SQL, categorize_wait
 from app.collector.sqlserver_client import SqlServerClient
@@ -23,6 +24,30 @@ def test_wait_sql_contains_required_dmv() -> None:
     assert "sys.dm_os_waiting_tasks" in sql
     assert "wait_duration_ms" in sql
     assert "resource_description" in sql
+
+
+def test_resource_sql_reports_host_cpu_and_os_memory_usage() -> None:
+    sql = RESOURCE_SQL.lower()
+    cpu_case = sql.split("as cpu_load_percent", maxsplit=1)[0].rsplit("case", maxsplit=1)[1]
+
+    assert "100 - cpu_sample.systemidle" in sql
+    assert cpu_case.index("when cpu_sample.systemidle") < cpu_case.index(
+        "when cpu_sample.sqlprocessutilization"
+    )
+    assert "sys.dm_os_sys_memory" in sql
+    assert "total_physical_memory_kb" in sql
+    assert "available_physical_memory_kb" in sql
+    assert "sys.dm_os_process_memory" not in sql
+    assert "memory_utilization_percentage" not in sql
+
+
+def test_resource_sql_reports_network_send_and_receive_counters() -> None:
+    sql = RESOURCE_SQL.lower()
+
+    assert "network_bytes_sent_total" in sql
+    assert "network_bytes_received_total" in sql
+    assert "num_writes" in sql
+    assert "num_reads" in sql
 
 
 def test_categorize_wait_maps_p0_wait_categories() -> None:

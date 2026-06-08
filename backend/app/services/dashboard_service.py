@@ -21,7 +21,8 @@ class FrameRef:
     status: Optional[str] = None
     cpu_load_percent: Optional[float] = None
     memory_usage_percent: Optional[float] = None
-    network_bytes_total: Optional[int] = None
+    network_bytes_sent_total: Optional[int] = None
+    network_bytes_received_total: Optional[int] = None
     source: Any = None
 
 
@@ -288,7 +289,8 @@ def frame_ref(frame: Optional[Any]) -> Optional[FrameRef]:
         status=_get(frame, "status"),
         cpu_load_percent=_float_or_none(_get(frame, "cpu_load_percent")),
         memory_usage_percent=_float_or_none(_get(frame, "memory_usage_percent")),
-        network_bytes_total=_get(frame, "network_bytes_total"),
+        network_bytes_sent_total=_get(frame, "network_bytes_sent_total"),
+        network_bytes_received_total=_get(frame, "network_bytes_received_total"),
         source=frame,
     )
 
@@ -352,7 +354,16 @@ async def _resource_trends(
                 snapshot_time=trend_frame.snapshot_time,
                 cpu_load_percent=_float_or_none(_get(trend_frame, "cpu_load_percent")),
                 memory_usage_percent=_float_or_none(_get(trend_frame, "memory_usage_percent")),
-                network_rate_bytes_per_sec=_network_rate(previous_frame, trend_frame),
+                network_send_rate_bytes_per_sec=_network_rate(
+                    previous_frame,
+                    trend_frame,
+                    "network_bytes_sent_total",
+                ),
+                network_receive_rate_bytes_per_sec=_network_rate(
+                    previous_frame,
+                    trend_frame,
+                    "network_bytes_received_total",
+                ),
             )
         )
         previous_frame = trend_frame
@@ -420,11 +431,15 @@ def _float_or_none(value: Any) -> Optional[float]:
     return float(value)
 
 
-def _network_rate(previous_frame: Optional[FrameRef], current_frame: FrameRef) -> Optional[float]:
+def _network_rate(
+    previous_frame: Optional[FrameRef],
+    current_frame: FrameRef,
+    counter_field: str,
+) -> Optional[float]:
     if previous_frame is None:
         return None
-    previous_bytes = _get(previous_frame, "network_bytes_total")
-    current_bytes = _get(current_frame, "network_bytes_total")
+    previous_bytes = _get(previous_frame, counter_field)
+    current_bytes = _get(current_frame, counter_field)
     if previous_bytes is None or current_bytes is None:
         return None
     elapsed_seconds = (current_frame.snapshot_time - previous_frame.snapshot_time).total_seconds()

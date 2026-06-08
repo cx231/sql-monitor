@@ -48,6 +48,15 @@ class Instance(Base):
     collect_interval_seconds: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("5")
     )
+    missing_index_collect_interval_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("600")
+    )
+    index_fragmentation_collect_interval_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("600")
+    )
+    index_operation_timeout_seconds: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("1800")
+    )
     retention_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("7"))
     business_owner: Mapped[Optional[str]] = mapped_column(String(128))
     dba_owner: Mapped[Optional[str]] = mapped_column(String(128))
@@ -99,7 +108,8 @@ class SnapshotFrame(Base):
     error_message: Mapped[Optional[str]] = mapped_column(Text)
     cpu_load_percent: Mapped[Optional[object]] = mapped_column(Numeric(5, 2))
     memory_usage_percent: Mapped[Optional[object]] = mapped_column(Numeric(5, 2))
-    network_bytes_total: Mapped[Optional[int]] = mapped_column(BigInteger)
+    network_bytes_sent_total: Mapped[Optional[int]] = mapped_column(BigInteger)
+    network_bytes_received_total: Mapped[Optional[int]] = mapped_column(BigInteger)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -301,6 +311,142 @@ class KillAudit(Base):
     before_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
     result: Mapped[str] = mapped_column(String(32), nullable=False)
     error_message: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MissingIndexAudit(Base):
+    __tablename__ = "missing_index_audits"
+    __table_args__ = (
+        CheckConstraint(
+            "result IN ('running', 'success', 'failed', 'rejected')",
+            name="missing_index_audits_result_check",
+        ),
+        Index("idx_missing_index_audits_instance_time", "instance_id", text("created_at DESC")),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    operator_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True))
+    operator_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
+    )
+    database_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    schema_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    table_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    index_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    key_columns: Mapped[list] = mapped_column(JSONB, nullable=False)
+    include_columns: Mapped[list] = mapped_column(JSONB, nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'CREATE'"))
+    partition_number: Mapped[Optional[int]] = mapped_column(Integer)
+    online_used: Mapped[Optional[bool]] = mapped_column(Boolean)
+    fragmentation_percent: Mapped[Optional[object]] = mapped_column(Numeric(9, 2))
+    page_count: Mapped[Optional[int]] = mapped_column(BigInteger)
+    ddl_summary: Mapped[str] = mapped_column(Text, nullable=False)
+    result: Mapped[str] = mapped_column(String(32), nullable=False)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class IndexCollectionStatus(Base):
+    __tablename__ = "index_collection_status"
+    __table_args__ = (
+        CheckConstraint(
+            "index_type IN ('missing', 'fragmentation')",
+            name="index_collection_status_type_check",
+        ),
+        CheckConstraint(
+            "status IN ('unknown', 'success', 'failed')",
+            name="index_collection_status_status_check",
+        ),
+        PrimaryKeyConstraint("instance_id", "database_name", "index_type"),
+        Index("idx_index_collection_status_instance_type", "instance_id", "index_type"),
+    )
+
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
+    )
+    database_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    index_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    last_success_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True))
+    last_failure_at: Mapped[Optional[object]] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'unknown'"))
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+    item_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    updated_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MissingIndexSnapshot(Base):
+    __tablename__ = "missing_index_snapshots"
+    __table_args__ = (
+        Index("idx_missing_index_snapshots_instance_database", "instance_id", "database_name"),
+        Index(
+            "idx_missing_index_snapshots_page",
+            "instance_id",
+            "database_name",
+            text("avg_total_user_cost DESC"),
+            text("id ASC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
+    )
+    database_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    schema_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    table_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    equality_columns: Mapped[list] = mapped_column(JSONB, nullable=False)
+    inequality_columns: Mapped[list] = mapped_column(JSONB, nullable=False)
+    include_columns: Mapped[list] = mapped_column(JSONB, nullable=False)
+    user_seeks: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    user_scans: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    avg_total_user_cost: Mapped[object] = mapped_column(Numeric(18, 4), nullable=False)
+    avg_user_impact: Mapped[object] = mapped_column(Numeric(9, 2), nullable=False)
+    recommended_index_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    collected_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[object] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class IndexFragmentationSnapshot(Base):
+    __tablename__ = "index_fragmentation_snapshots"
+    __table_args__ = (
+        Index(
+            "idx_index_fragmentation_snapshots_instance_database",
+            "instance_id",
+            "database_name",
+        ),
+        Index(
+            "idx_index_fragmentation_snapshots_page",
+            "instance_id",
+            "database_name",
+            text("avg_fragmentation_in_percent DESC"),
+            text("id ASC"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("instances.id"), nullable=False
+    )
+    database_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    schema_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    table_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    index_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    index_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    partition_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    avg_fragmentation_in_percent: Mapped[object] = mapped_column(Numeric(9, 2), nullable=False)
+    page_count: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    recommended_action: Mapped[str] = mapped_column(String(32), nullable=False)
+    online_rebuild_supported: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    collected_at: Mapped[object] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[object] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

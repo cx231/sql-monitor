@@ -32,4 +32,5 @@ class BlockingOut(BaseModel):
     instance_id: uuid.UUID
     frame_id: uuid.UUID
     snapshot_time: datetime
+    collect_delay_seconds: int
     chains: list[BlockingChain]

@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQLMon 安装部署方案</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --paper: #ffffff;
+      --text: #172033;
+      --muted: #5f6f89;
+      --line: #dbe3ef;
+      --soft: #f1f5f9;
+      --primary: #1d4ed8;
+      --code-bg: #0f172a;
+      --code-text: #e2e8f0;
+      --accent: #0f766e;
+      --warn-bg: #fff7ed;
+      --warn-line: #f97316;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--text);
+      background: var(--bg);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Microsoft YaHei", sans-serif;
+      line-height: 1.72;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .toc {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 28px 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+      border-right: 1px solid #1e293b;
+    }
+
+    .toc h2 {
+      margin: 0 0 18px;
+      color: #fff;
+      font-size: 18px;
+      line-height: 1.35;
+    }
+
+    .toc a {
+      display: block;
+      padding: 6px 8px;
+      color: #cbd5e1;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .toc a:hover {
+      color: #fff;
+      background: #1e293b;
+    }
+
+    .toc-level-1 { font-weight: 700; }
+    .toc-level-2 { margin-left: 8px; }
+    .toc-level-3 { margin-left: 20px; color: #94a3b8; }
+
+    main {
+      width: min(1120px, calc(100vw - 320px));
+      margin: 0 auto;
+      padding: 36px 28px 72px;
+    }
+
+    article {
+      padding: 38px 46px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 18px 45px rgba(15, 23, 42, .07);
+    }
+
+    h1, h2, h3 {
+      color: #101827;
+      line-height: 1.32;
+    }
+
+    h1 {
+      margin: 0 0 24px;
+      padding-bottom: 18px;
+      border-bottom: 2px solid var(--line);
+      font-size: 30px;
+    }
+
+    h2 {
+      margin-top: 40px;
+      padding-top: 8px;
+      font-size: 24px;
+    }
+
+    h3 {
+      margin-top: 28px;
+      font-size: 18px;
+    }
+
+    p { margin: 12px 0; }
+
+    .meta {
+      margin: -8px 0 24px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 22px 0 30px;
+    }
+
+    .summary div {
+      padding: 14px 16px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .summary strong {
+      display: block;
+      margin-bottom: 2px;
+      color: #0f172a;
+      font-size: 14px;
+    }
+
+    .summary span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      margin: 14px 0 22px;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 9px 11px;
+      border: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--soft);
+      color: #26364f;
+      text-align: left;
+    }
+
+    code {
+      padding: 2px 5px;
+      background: var(--soft);
+      border-radius: 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .92em;
+    }
+
+    pre {
+      overflow: auto;
+      margin: 14px 0 22px;
+      padding: 16px;
+      color: var(--code-text);
+      background: var(--code-bg);
+      border-radius: 8px;
+    }
+
+    pre code {
+      padding: 0;
+      color: inherit;
+      background: transparent;
+    }
+
+    blockquote {
+      margin: 16px 0;
+      padding: 11px 16px;
+      background: #eff6ff;
+      border-left: 4px solid var(--primary);
+      color: #1e3a8a;
+    }
+
+    .warning {
+      background: var(--warn-bg);
+      border-left-color: var(--warn-line);
+      color: #9a3412;
+    }
+
+    ol, ul { padding-left: 1.5em; }
+    a { color: var(--primary); }
+
+    .badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 7px;
+      color: #fff;
+      background: var(--accent);
+      border-radius: 999px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+
+    @media (max-width: 980px) {
+      .layout { display: block; }
+      .toc { position: static; height: auto; }
+      main { width: 100%; padding: 18px; }
+      article { padding: 26px 20px; }
+      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 640px) {
+      .summary { grid-template-columns: 1fr; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      .layout { display: block; }
+      .toc { display: none; }
+      main { width: 100%; padding: 0; }
+      article { border: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="toc" aria-label="目录">
+      <h2>SQLMon 安装部署方案</h2>
+      <a class="toc-level-1" href="#overview">文档概览</a>
+      <a class="toc-level-1" href="#windows">1. Windows 安装方案</a>
+      <a class="toc-level-2" href="#windows-prerequisites">1.1 安装依赖</a>
+      <a class="toc-level-2" href="#windows-install">1.2 安装步骤</a>
+      <a class="toc-level-2" href="#windows-start">1.3 启动方式</a>
+      <a class="toc-level-1" href="#ubuntu">2. Ubuntu 安装方案</a>
+      <a class="toc-level-2" href="#ubuntu-prerequisites">2.1 安装依赖</a>
+      <a class="toc-level-2" href="#ubuntu-install">2.2 安装步骤</a>
+      <a class="toc-level-2" href="#ubuntu-start">2.3 启动方式</a>
+      <a class="toc-level-1" href="#database-and-ports">3. 数据库和端口设置</a>
+      <a class="toc-level-2" href="#postgres">3.1 PostgreSQL 设置</a>
+      <a class="toc-level-2" href="#ports">3.2 端口设置</a>
+      <a class="toc-level-2" href="#sqlserver">3.3 SQL Server 接入权限</a>
+      <a class="toc-level-1" href="#migration-and-account">4. 迁移和默认账号</a>
+      <a class="toc-level-2" href="#migration">4.1 数据迁移方案</a>
+      <a class="toc-level-2" href="#default-account">4.2 默认账号和密码</a>
+      <a class="toc-level-1" href="#checklist">5. 部署后检查</a>
+    </nav>
+
+    <main>
+      <article>
+        <h1 id="overview">SQLMon 安装部署方案</h1>
+        <p class="meta">适用项目：<code>/Users/chenxuan/sql/.worktrees/sqlmon-p0</code></p>
+
+        <p>SQLMon 是一个 SQL Server 实时监控平台，当前项目由 FastAPI 后端、Vue/Vite 前端、PostgreSQL 持久化数据库和 SQL Server ODBC 采集器组成。本文档给出 Windows 与 Ubuntu 的安装方案、启动方式、数据库和端口设置、迁移方案，以及默认管理员账号信息。</p>
+
+        <div class="summary" aria-label="部署概览">
+          <div>
+            <strong>后端</strong>
+            <span>Python 3.11+ / FastAPI / Uvicorn</span>
+          </div>
+          <div>
+            <strong>前端</strong>
+            <span>Vue 3 / Vite / npm build</span>
+          </div>
+          <div>
+            <strong>数据库</strong>
+            <span>PostgreSQL + Alembic 迁移</span>
+          </div>
+          <div>
+            <strong>采集</strong>
+            <span>pyodbc + ODBC Driver 18</span>
+          </div>
+        </div>
+
+        <blockquote class="warning">生产环境必须替换默认数据库密码、默认管理员密码，并配置长度不少于 32 字符的 <code>SQLMON_SECRET_KEY</code>。</blockquote>
+
+        <h2 id="windows">1. Windows 安装方案</h2>
+
+        <h3 id="windows-prerequisites">1.1 安装依赖</h3>
+        <p>Windows 环境建议用于开发、测试或小规模内网部署。需要预先安装以下组件：</p>
+        <table>
+          <thead>
+            <tr>
+              <th>组件</th>
+              <th>版本/说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Python</td>
+              <td><code>3.11+</code></td>
+            </tr>
+            <tr>
+              <td>Node.js</td>
+              <td>Node.js LTS，包含 npm</td>
+            </tr>
+            <tr>
+              <td>PostgreSQL</td>
+              <td>用于保存实例配置、快照、审计和用户数据</td>
+            </tr>
+            <tr>
+              <td>Microsoft ODBC Driver 18 for SQL Server</td>
+              <td>用于 <code>pyodbc</code> 连接被监控 SQL Server 实例</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>ODBC Driver 18 可从 Microsoft 官方页面下载安装：<a href="https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver17">Download ODBC Driver for SQL Server</a>。</p>
+
+        <h3 id="windows-install">1.2 安装步骤</h3>
+        <p>以下示例假设项目放在 <code>C:\sqlmon</code>：</p>
+
+        <pre><code class="language-powershell">cd C:\sqlmon
+
+py -3.11 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -e .\backend
+
+cd .\frontend
+npm ci
+npm run build</code></pre>
+
+        <p>创建后端环境变量文件 <code>C:\sqlmon\backend\.env</code>：</p>
+
+        <pre><code class="language-text">SQLMON_ENV=prod
+SQLMON_SECRET_KEY=replace-with-at-least-32-random-characters
+SQLMON_DATABASE_URL=postgresql+asyncpg://sqlmon:数据库密码@127.0.0.1:5432/sqlmon
+SQLMON_API_HOST=127.0.0.1
+SQLMON_API_PORT=8000
+SQLMON_LOG_LEVEL=INFO
+SQLMON_DEFAULT_RETENTION_DAYS=7
+SQLMON_COLLECT_CONNECT_TIMEOUT_SECONDS=5
+SQLMON_COLLECT_QUERY_TIMEOUT_SECONDS=3
+SQLMON_MIN_KILLABLE_SESSION_ID=50</code></pre>
+
+        <h3 id="windows-start">1.3 启动方式</h3>
+        <p>首次启动前执行数据库迁移：</p>
+
+        <pre><code class="language-powershell">cd C:\sqlmon\backend
+..\.venv\Scripts\Activate.ps1
+alembic upgrade head</code></pre>
+
+        <p>启动 API 服务：</p>
+
+        <pre><code class="language-powershell">cd C:\sqlmon\backend
+..\.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 127.0.0.1 --port 8000</code></pre>
+
+        <p>另开一个 PowerShell 启动 Collector：</p>
+
+        <pre><code class="language-powershell">cd C:\sqlmon\backend
+..\.venv\Scripts\Activate.ps1
+python -m app.collector.main</code></pre>
+
+        <p>开发态前端启动方式：</p>
+
+        <pre><code class="language-powershell">cd C:\sqlmon\frontend
+npm run dev -- --host 0.0.0.0 --port 5173</code></pre>
+
+        <p>生产态 Windows 建议使用 Nginx for Windows 或 IIS：静态目录指向 <code>frontend/dist</code>，并将 <code>/api</code> 反向代理到 <code>http://127.0.0.1:8000</code>。API 与 Collector 可用 NSSM 注册为 Windows Service。</p>
+
+        <h2 id="ubuntu">2. Ubuntu 安装方案</h2>
+
+        <h3 id="ubuntu-prerequisites">2.1 安装依赖</h3>
+        <p>Ubuntu 环境是推荐生产部署方式。需要安装：</p>
+
+        <ul>
+          <li>Python <code>3.11+</code> 和 venv。</li>
+          <li>Node.js LTS 和 npm。</li>
+          <li>PostgreSQL。</li>
+          <li>Nginx。</li>
+          <li>Microsoft ODBC Driver 18 for SQL Server。</li>
+        </ul>
+
+        <p>ODBC Driver 18 建议按 Microsoft 官方文档安装：<a href="https://learn.microsoft.com/en-us/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver17">Installing the Microsoft ODBC Driver for SQL Server on Linux</a>。</p>
+
+        <h3 id="ubuntu-install">2.2 安装步骤</h3>
+        <p>以下示例使用 <code>/opt/sqlmon</code> 作为生产部署目录：</p>
+
+        <pre><code class="language-bash">sudo useradd --system --create-home --home-dir /opt/sqlmon --shell /usr/sbin/nologin sqlmon
+sudo mkdir -p /opt/sqlmon/{backend,frontend,config,scripts,logs}
+sudo chown -R sqlmon:sqlmon /opt/sqlmon</code></pre>
+
+        <p>复制项目文件后安装后端和前端依赖：</p>
+
+        <pre><code class="language-bash">cd /opt/sqlmon
+sudo -u sqlmon python3.11 -m venv venv
+sudo -u sqlmon /opt/sqlmon/venv/bin/pip install --upgrade pip
+sudo -u sqlmon /opt/sqlmon/venv/bin/pip install -e /opt/sqlmon/backend
+
+cd /opt/sqlmon/frontend
+sudo -u sqlmon npm ci
+sudo -u sqlmon npm run build</code></pre>
+
+        <p>准备环境变量文件：</p>
+
+        <pre><code class="language-bash">sudo cp deploy/env/app.env.example /opt/sqlmon/config/app.env
+sudo vim /opt/sqlmon/config/app.env</code></pre>
+
+        <p><code>/opt/sqlmon/config/app.env</code> 至少应包含：</p>
+
+        <pre><code class="language-text">SQLMON_ENV=prod
+SQLMON_SECRET_KEY=replace-with-at-least-32-random-characters
+SQLMON_DATABASE_URL=postgresql+asyncpg://sqlmon:change-me@127.0.0.1:5432/sqlmon
+SQLMON_ENCRYPTION_KEY=replace-with-encryption-key
+SQLMON_API_HOST=127.0.0.1
+SQLMON_API_PORT=8000
+SQLMON_LOG_LEVEL=INFO
+SQLMON_DEFAULT_RETENTION_DAYS=7
+SQLMON_COLLECT_CONNECT_TIMEOUT_SECONDS=5
+SQLMON_COLLECT_QUERY_TIMEOUT_SECONDS=3
+SQLMON_MIN_KILLABLE_SESSION_ID=50</code></pre>
+
+        <h3 id="ubuntu-start">2.3 启动方式</h3>
+        <p>复制项目自带脚本并执行迁移：</p>
+
+        <pre><code class="language-bash">sudo cp deploy/scripts/*.sh /opt/sqlmon/scripts/
+sudo chmod +x /opt/sqlmon/scripts/*.sh
+
+sudo -u sqlmon APP_HOME=/opt/sqlmon /opt/sqlmon/scripts/migrate.sh</code></pre>
+
+        <p>注册并启动 systemd 服务：</p>
+
+        <pre><code class="language-bash">sudo cp deploy/systemd/sqlmon-api.service /etc/systemd/system/
+sudo cp deploy/systemd/sqlmon-collector.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now sqlmon-api sqlmon-collector</code></pre>
+
+        <p>配置 Nginx：</p>
+
+        <pre><code class="language-bash">sudo cp deploy/nginx/sqlmon.conf /etc/nginx/sites-available/sqlmon.conf
+sudo ln -s /etc/nginx/sites-available/sqlmon.conf /etc/nginx/sites-enabled/sqlmon.conf
+sudo nginx -t
+sudo systemctl reload nginx</code></pre>
+
+        <p>启动后访问：</p>
+        <table>
+          <thead>
+            <tr>
+              <th>地址</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>http://服务器IP/</code></td>
+              <td>前端页面</td>
+            </tr>
+            <tr>
+              <td><code>http://服务器IP/api/health</code></td>
+              <td>API 健康检查，期望返回 <code>{"status":"ok"}</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2 id="database-and-ports">3. 数据库和端口设置</h2>
+
+        <h3 id="postgres">3.1 PostgreSQL 设置</h3>
+        <p>SQLMon 使用 PostgreSQL 保存平台数据。初始化数据库和用户：</p>
+
+        <pre><code class="language-sql">CREATE USER sqlmon WITH PASSWORD '强密码';
+CREATE DATABASE sqlmon OWNER sqlmon;
+GRANT ALL PRIVILEGES ON DATABASE sqlmon TO sqlmon;</code></pre>
+
+        <p>后端通过 <code>SQLMON_DATABASE_URL</code> 指定连接串：</p>
+
+        <pre><code class="language-text">SQLMON_DATABASE_URL=postgresql+asyncpg://sqlmon:强密码@127.0.0.1:5432/sqlmon</code></pre>
+
+        <h3 id="ports">3.2 端口设置</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>端口</th>
+              <th>组件</th>
+              <th>配置方式</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>5432</code></td>
+              <td>PostgreSQL</td>
+              <td>PostgreSQL 配置</td>
+              <td>平台主数据库端口</td>
+            </tr>
+            <tr>
+              <td><code>8000</code></td>
+              <td>FastAPI API</td>
+              <td><code>SQLMON_API_HOST</code> / <code>SQLMON_API_PORT</code></td>
+              <td>默认监听 <code>127.0.0.1:8000</code></td>
+            </tr>
+            <tr>
+              <td><code>5173</code></td>
+              <td>Vite 开发服务</td>
+              <td><code>npm run dev -- --port 5173</code></td>
+              <td>开发态前端端口</td>
+            </tr>
+            <tr>
+              <td><code>80</code></td>
+              <td>Nginx</td>
+              <td><code>deploy/nginx/sqlmon.conf</code></td>
+              <td>生产态 Web 入口，反代 <code>/api</code> 到 API</td>
+            </tr>
+            <tr>
+              <td><code>1433</code></td>
+              <td>SQL Server</td>
+              <td>实例配置页面或实例 API</td>
+              <td>被监控 SQL Server 默认端口</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>前端生产态默认请求同源 <code>/api</code>；开发态 Vite 配置会把 <code>/api</code> 代理到 <code>http://localhost:8000</code>。</p>
+
+        <h3 id="sqlserver">3.3 SQL Server 接入权限</h3>
+        <p>实例接入在登录后通过“实例设置”维护。创建实例时可填写 SQL Server 主机、端口、数据库、SQL 认证用户名和密码，也可直接提供采集 DSN。</p>
+
+        <p>系统默认使用 <code>ODBC Driver 18 for SQL Server</code>，生成的 SQL 认证连接串会包含：</p>
+
+        <pre><code class="language-text">Driver={ODBC Driver 18 for SQL Server};
+Server={host,1433};
+Database={master};
+UID={username};
+PWD={password};
+Encrypt=yes;
+TrustServerCertificate=yes;</code></pre>
+
+        <p>SQL Server 采集账号权限：</p>
+
+        <pre><code class="language-sql">-- SQL Server 2019 及以前
+GRANT VIEW SERVER STATE TO [sqlmon_collect];
+
+-- SQL Server 2022 及以后
+GRANT VIEW SERVER PERFORMANCE STATE TO [sqlmon_collect];</code></pre>
+
+        <p>如需 Kill Session 功能，建议单独配置 Kill 账号：</p>
+
+        <pre><code class="language-sql">GRANT ALTER ANY CONNECTION TO [sqlmon_kill];</code></pre>
+
+        <blockquote>如果企业安全要求更高，可以不配置 Kill 账号，平台仅展示 Kill 建议，由 DBA 登录 SSMS 手动执行。</blockquote>
+
+        <h2 id="migration-and-account">4. 迁移和默认账号</h2>
+
+        <h3 id="migration">4.1 数据迁移方案</h3>
+        <p>SQLMon 使用 Alembic 管理数据库结构。初始化和升级都执行：</p>
+
+        <pre><code class="language-bash">cd backend
+alembic upgrade head</code></pre>
+
+        <p>Ubuntu 生产环境可使用项目脚本：</p>
+
+        <pre><code class="language-bash">APP_HOME=/opt/sqlmon /opt/sqlmon/scripts/migrate.sh</code></pre>
+
+        <p>生产升级建议流程：</p>
+
+        <ol>
+          <li>停止 API 和 Collector，避免升级期间继续写入快照。</li>
+          <li>备份 PostgreSQL 数据库。</li>
+          <li>发布新代码和前端构建产物。</li>
+          <li>执行 <code>alembic upgrade head</code>。</li>
+          <li>启动 API、Collector 和 Nginx。</li>
+          <li>访问 <code>/api/health</code> 和前端页面验证。</li>
+        </ol>
+
+        <p>PostgreSQL 备份示例：</p>
+
+        <pre><code class="language-bash">pg_dump -Fc -d sqlmon -f sqlmon_$(date +%F).dump</code></pre>
+
+        <p>当前迁移链包含：</p>
+        <table>
+          <thead>
+            <tr>
+              <th>迁移</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0001_initial_schema</code></td>
+              <td>初始化核心表结构</td>
+            </tr>
+            <tr>
+              <td><code>0002_seed_default_admin_user</code></td>
+              <td>创建默认管理员用户</td>
+            </tr>
+            <tr>
+              <td><code>0003_snapshot_resource_metrics</code></td>
+              <td>增加快照资源指标</td>
+            </tr>
+            <tr>
+              <td><code>0004_missing_index_audits</code></td>
+              <td>增加缺失索引审计</td>
+            </tr>
+            <tr>
+              <td><code>0005_split_network_metrics</code></td>
+              <td>拆分网络资源指标</td>
+            </tr>
+            <tr>
+              <td><code>0006_index_snapshots</code></td>
+              <td>增加索引采集快照</td>
+            </tr>
+            <tr>
+              <td><code>0007_index_page_indexes</code></td>
+              <td>增加索引快照分页索引</td>
+            </tr>
+            <tr>
+              <td><code>0008_async_index_ddl</code></td>
+              <td>增加异步索引 DDL 设置</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 id="default-account">4.2 默认账号和密码</h3>
+        <p>默认管理员由迁移 <code>0002_seed_default_admin_user</code> 初始化：</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>项目</th>
+              <th>值</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>用户名</td>
+              <td><code>admin</code></td>
+            </tr>
+            <tr>
+              <td>密码</td>
+              <td><code>Admin@2026</code></td>
+            </tr>
+            <tr>
+              <td>显示名</td>
+              <td><code>系统管理员</code></td>
+            </tr>
+            <tr>
+              <td>角色</td>
+              <td><code>admin</code></td>
+            </tr>
+            <tr>
+              <td>状态</td>
+              <td><code>active</code></td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>迁移脚本对 <code>username=admin</code> 使用冲突跳过逻辑，因此已有管理员不会被覆盖。首次登录后建议立即进入用户管理页面修改密码。</p>
+
+        <h2 id="checklist">5. 部署后检查</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>检查项</th>
+              <th>命令或操作</th>
+              <th>期望结果</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>API 健康检查</td>
+              <td><code>curl http://127.0.0.1:8000/api/health</code></td>
+              <td>返回 <code>{"status":"ok"}</code></td>
+            </tr>
+            <tr>
+              <td>systemd 服务</td>
+              <td><code>systemctl status sqlmon-api sqlmon-collector</code></td>
+              <td>两个服务均为 <code>active</code></td>
+            </tr>
+            <tr>
+              <td>Nginx 配置</td>
+              <td><code>nginx -t</code></td>
+              <td>配置检查通过</td>
+            </tr>
+            <tr>
+              <td>前端访问</td>
+              <td>打开 <code>http://服务器IP/</code></td>
+              <td>可以看到登录页</td>
+            </tr>
+            <tr>
+              <td>默认管理员</td>
+              <td>使用 <code>admin</code> / <code>Admin@2026</code> 登录</td>
+              <td>登录成功，并可进入用户管理</td>
+            </tr>
+            <tr>
+              <td>SQL Server 连接测试</td>
+              <td>进入实例设置，新增实例并点击连接测试</td>
+              <td>返回 SQL Server 版本和可用数据库列表</td>
+            </tr>
+            <tr>
+              <td>采集数据</td>
+              <td>启动 Collector 后查看 Dashboard</td>
+              <td>快照时间持续更新，页面不再显示无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </main>
+  </div>
+</body>
+</html>

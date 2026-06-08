@@ -5,10 +5,13 @@ import MainLayout from '@/layouts/MainLayout.vue';
 import BlockingView from '@/views/BlockingView.vue';
 import DashboardView from '@/views/DashboardView.vue';
 import InstancesView from '@/views/InstancesView.vue';
+import IndexFragmentationView from '@/views/IndexFragmentationView.vue';
+import MissingIndexesView from '@/views/MissingIndexesView.vue';
 import LoginView from '@/views/LoginView.vue';
 import ReplayView from '@/views/ReplayView.vue';
 import SessionsView from '@/views/SessionsView.vue';
 import SqlsView from '@/views/SqlsView.vue';
+import UsersView from '@/views/UsersView.vue';
 
 const routes: RouteRecordRaw[] = [
   {
@@ -47,6 +50,18 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '阻塞分析' },
       },
       {
+        path: 'indexes/missing',
+        name: 'missing-indexes',
+        component: MissingIndexesView,
+        meta: { title: '缺失索引' },
+      },
+      {
+        path: 'indexes/fragmentation',
+        name: 'index-fragmentation',
+        component: IndexFragmentationView,
+        meta: { title: '索引碎片' },
+      },
+      {
         path: 'replay',
         name: 'replay',
         component: ReplayView,
@@ -57,6 +72,12 @@ const routes: RouteRecordRaw[] = [
         name: 'settings-instances',
         component: InstancesView,
         meta: { title: '实例设置' },
+      },
+      {
+        path: 'settings/users',
+        name: 'settings-users',
+        component: UsersView,
+        meta: { title: '用户管理' },
       },
     ],
   },

@@ -15,9 +15,11 @@
       <el-checkbox v-model="filters.onlyOpenTransaction">仅打开事务</el-checkbox>
     </div>
 
-    <DataState :loading="loading" :error="error" :empty="!rows.length" :stale="isStale">
+    <DataState :loading="loading" :error="error" :empty="!rows.length" :stale="isStale" :stale-text="staleText">
       <div class="table-panel">
-        <div class="snapshot-line">快照时间：{{ formatDateTime(snapshotTime) }}</div>
+        <div class="snapshot-line">
+          快照时间：{{ formatDateTime(snapshotTime) }}，采集延迟：{{ collectDelaySeconds }} 秒
+        </div>
         <vxe-table
           :data="rows"
           size="small"
@@ -76,7 +78,8 @@ import KillConfirmDialog from '@/components/KillConfirmDialog.vue';
 import SessionDetailDrawer from '@/components/SessionDetailDrawer.vue';
 import { useInstancesStore } from '@/stores/instances';
 import { useRefreshStore } from '@/stores/refresh';
-import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus, staleSeconds } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus } from '@/utils/format';
+import { isRealtimeStale, realtimeStaleText } from '@/utils/realtimeFreshness';
 
 const instancesStore = useInstancesStore();
 const refreshStore = useRefreshStore();
@@ -87,6 +90,7 @@ const pageSize = ref(50);
 const sortBy = ref('session_id');
 const sortOrder = ref<'asc' | 'desc'>('asc');
 const snapshotTime = ref<string | null>(null);
+const collectDelaySeconds = ref(0);
 const loading = ref(false);
 const error = ref('');
 const detailVisible = ref(false);
@@ -103,9 +107,9 @@ const filters = reactive({
 });
 
 const isStale = computed(() => {
-  const seconds = staleSeconds(snapshotTime.value);
-  return seconds !== null && seconds > 60;
+  return isRealtimeStale(collectDelaySeconds.value);
 });
+const staleText = computed(() => realtimeStaleText(instancesStore.currentInstance));
 
 async function fetchSessions() {
   const instanceId = instancesStore.currentInstance?.id;
@@ -116,6 +120,7 @@ async function fetchSessions() {
   loading.value = true;
   error.value = '';
   try {
+    await instancesStore.fetchInstances();
     const { data } = await apiClient.get<PageOut<SessionListItem>>('/sessions', {
       params: {
         instance_id: instanceId,
@@ -131,6 +136,7 @@ async function fetchSessions() {
     rows.value = data.items;
     total.value = data.total;
     snapshotTime.value = data.snapshot_time;
+    collectDelaySeconds.value = data.collect_delay_seconds;
   } catch {
     error.value = '无法加载会话数据';
   } finally {

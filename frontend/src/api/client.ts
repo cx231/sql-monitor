@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 const TOKEN_STORAGE_KEY = 'sqlmon.access_token';
+export const INDEX_OPERATION_TIMEOUT_MS = 30 * 60 * 1000;
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? '/api',

@@ -5,7 +5,13 @@ from collections import defaultdict
 from typing import Any, Optional
 
 from app.schemas.blocking import BlockingChain, BlockingNode, BlockingOut, RiskLevel
-from app.services.dashboard_service import _frame_attribute, _get, _repository, frame_ref
+from app.services.dashboard_service import (
+    _collect_delay_seconds,
+    _frame_attribute,
+    _get,
+    _repository,
+    frame_ref,
+)
 
 
 async def get_blocking_chains(
@@ -54,6 +60,7 @@ async def get_blocking_chains(
         instance_id=instance_id,
         frame_id=ref.frame_id,
         snapshot_time=ref.snapshot_time,
+        collect_delay_seconds=_collect_delay_seconds(ref.snapshot_time),
         chains=chains,
     )
 

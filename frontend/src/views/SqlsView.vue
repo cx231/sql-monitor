@@ -5,9 +5,11 @@
       <AutoRefreshControl />
     </div>
 
-    <DataState :loading="loading" :error="error" :empty="!rows.length" :stale="isStale">
+    <DataState :loading="loading" :error="error" :empty="!rows.length" :stale="isStale" :stale-text="staleText">
       <div class="table-panel">
-        <div class="snapshot-line">快照时间：{{ formatDateTime(snapshotTime) }}</div>
+        <div class="snapshot-line">
+          快照时间：{{ formatDateTime(snapshotTime) }}，采集延迟：{{ collectDelaySeconds }} 秒
+        </div>
         <vxe-table
           :data="rows"
           size="small"
@@ -84,7 +86,8 @@ import DataState from '@/components/DataState.vue';
 import InstanceSelector from '@/components/InstanceSelector.vue';
 import { useInstancesStore } from '@/stores/instances';
 import { useRefreshStore } from '@/stores/refresh';
-import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus, staleSeconds } from '@/utils/format';
+import { formatDateTime, formatDurationMs, formatNumber, formatSessionStatus } from '@/utils/format';
+import { isRealtimeStale, realtimeStaleText } from '@/utils/realtimeFreshness';
 
 const instancesStore = useInstancesStore();
 const refreshStore = useRefreshStore();
@@ -95,6 +98,7 @@ const pageSize = ref(50);
 const sortBy = ref('cpu_time_ms');
 const sortOrder = ref<'asc' | 'desc'>('desc');
 const snapshotTime = ref<string | null>(null);
+const collectDelaySeconds = ref(0);
 const loading = ref(false);
 const error = ref('');
 const sqlDetailVisible = ref(false);
@@ -103,9 +107,9 @@ const sqlDetailError = ref('');
 const sqlDetail = ref<SqlListItem | null>(null);
 
 const isStale = computed(() => {
-  const seconds = staleSeconds(snapshotTime.value);
-  return seconds !== null && seconds > 60;
+  return isRealtimeStale(collectDelaySeconds.value);
 });
+const staleText = computed(() => realtimeStaleText(instancesStore.currentInstance));
 
 const sqlDetailFields = computed(() => {
   const row = sqlDetail.value;
@@ -140,6 +144,7 @@ async function fetchSqls() {
   loading.value = true;
   error.value = '';
   try {
+    await instancesStore.fetchInstances();
     const { data } = await apiClient.get<PageOut<SqlListItem>>('/sqls', {
       params: {
         instance_id: instanceId,
@@ -152,6 +157,7 @@ async function fetchSqls() {
     rows.value = data.items;
     total.value = data.total;
     snapshotTime.value = data.snapshot_time;
+    collectDelaySeconds.value = data.collect_delay_seconds;
   } catch {
     error.value = '无法加载 SQL 数据';
   } finally {

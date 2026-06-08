@@ -49,7 +49,8 @@ class ResourceTrendPoint(BaseModel):
     snapshot_time: datetime
     cpu_load_percent: Optional[float] = None
     memory_usage_percent: Optional[float] = None
-    network_rate_bytes_per_sec: Optional[float] = None
+    network_send_rate_bytes_per_sec: Optional[float] = None
+    network_receive_rate_bytes_per_sec: Optional[float] = None
 
 
 class DashboardOut(BaseModel):

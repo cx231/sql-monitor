@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SQL Server 实时监控平台说明文档</title>
+  <style>
+    :root { color-scheme: light; --bg:#f7f9fc; --paper:#fff; --text:#172033; --muted:#61708a; --line:#dbe3ef; --soft:#f1f5f9; --primary:#1d4ed8; --code-bg:#0f172a; --code-text:#e2e8f0; }
+    * { box-sizing: border-box; }
+    body { margin:0; color:var(--text); background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; line-height:1.72; }
+    .layout { display:grid; grid-template-columns:280px minmax(0,1fr); min-height:100vh; }
+    .toc { position:sticky; top:0; height:100vh; overflow:auto; padding:28px 20px; background:#0f172a; color:#e2e8f0; border-right:1px solid #1e293b; }
+    .toc h2 { margin:0 0 18px; font-size:18px; line-height:1.35; color:#fff; }
+    .toc a { display:block; padding:6px 8px; color:#cbd5e1; text-decoration:none; border-radius:6px; font-size:14px; }
+    .toc a:hover { color:#fff; background:#1e293b; }
+    .toc-level-1 { font-weight:700; }
+    .toc-level-2 { margin-left:8px; }
+    .toc-level-3 { margin-left:20px; color:#94a3b8; }
+    main { width:min(1120px, calc(100vw - 320px)); margin:0 auto; padding:36px 28px 72px; }
+    article { padding:38px 46px; background:var(--paper); border:1px solid var(--line); border-radius:10px; box-shadow:0 18px 45px rgba(15,23,42,.07); }
+    h1,h2,h3,h4,h5,h6 { line-height:1.32; color:#101827; }
+    h1 { margin:0 0 24px; padding-bottom:18px; border-bottom:2px solid var(--line); font-size:30px; }
+    h2 { margin-top:38px; padding-top:8px; font-size:24px; }
+    h3 { margin-top:28px; font-size:18px; }
+    p { margin:12px 0; }
+    table { width:100%; margin:14px 0 22px; border-collapse:collapse; font-size:14px; }
+    th,td { padding:9px 11px; border:1px solid var(--line); vertical-align:top; }
+    th { background:var(--soft); text-align:left; color:#26364f; }
+    code { padding:2px 5px; background:var(--soft); border-radius:4px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.92em; }
+    pre { overflow:auto; padding:16px; background:var(--code-bg); color:var(--code-text); border-radius:8px; }
+    pre code { padding:0; background:transparent; color:inherit; }
+    img { display:block; max-width:100%; margin:16px 0 26px; border:1px solid var(--line); border-radius:8px; box-shadow:0 12px 32px rgba(15,23,42,.12); }
+    blockquote { margin:16px 0; padding:10px 16px; background:#eff6ff; border-left:4px solid var(--primary); color:#1e3a8a; }
+    ol,ul { padding-left:1.5em; }
+    @media (max-width: 980px) { .layout{display:block}.toc{position:static;height:auto} main{width:100%;padding:18px} article{padding:26px 20px} }
+    @media print { body{background:#fff}.layout{display:block}.toc{display:none} main{width:100%;padding:0} article{box-shadow:none;border:0} img{box-shadow:none} }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <nav class="toc" aria-label="目录">
+      <h2>SQLMon 说明文档</h2>
+      <a class="toc-level-1" href="#sql-server-实时监控平台说明文档">SQL Server 实时监控平台说明文档</a>
+<a class="toc-level-2" href="#1-文档说明">1. 文档说明</a>
+<a class="toc-level-2" href="#2-系统定位">2. 系统定位</a>
+<a class="toc-level-2" href="#3-技术架构">3. 技术架构</a>
+<a class="toc-level-2" href="#4-启动流程">4. 启动流程</a>
+<a class="toc-level-3" href="#41-本地开发启动">4.1 本地开发启动</a>
+<a class="toc-level-3" href="#42-数据库迁移">4.2 数据库迁移</a>
+<a class="toc-level-3" href="#43-collector-启动">4.3 Collector 启动</a>
+<a class="toc-level-3" href="#44-生产部署要点">4.4 生产部署要点</a>
+<a class="toc-level-2" href="#5-登录流程">5. 登录流程</a>
+<a class="toc-level-2" href="#6-主界面说明">6. 主界面说明</a>
+<a class="toc-level-2" href="#7-全局实例和刷新控制">7. 全局实例和刷新控制</a>
+<a class="toc-level-2" href="#8-仪表盘使用流程">8. 仪表盘使用流程</a>
+<a class="toc-level-2" href="#9-会话监控流程">9. 会话监控流程</a>
+<a class="toc-level-2" href="#10-sql-分析流程">10. SQL 分析流程</a>
+<a class="toc-level-2" href="#11-阻塞分析流程">11. 阻塞分析流程</a>
+<a class="toc-level-2" href="#12-缺失索引治理流程">12. 缺失索引治理流程</a>
+<a class="toc-level-2" href="#13-索引碎片维护流程">13. 索引碎片维护流程</a>
+<a class="toc-level-2" href="#14-历史回放流程">14. 历史回放流程</a>
+<a class="toc-level-2" href="#15-实例设置流程">15. 实例设置流程</a>
+<a class="toc-level-2" href="#16-用户管理流程">16. 用户管理流程</a>
+<a class="toc-level-2" href="#17-典型排障流程">17. 典型排障流程</a>
+<a class="toc-level-3" href="#171-实时阻塞排查">17.1 实时阻塞排查</a>
+<a class="toc-level-3" href="#172-高-cpu-sql-排查">17.2 高 CPU SQL 排查</a>
+<a class="toc-level-3" href="#173-高-io-sql-排查">17.3 高 IO SQL 排查</a>
+<a class="toc-level-3" href="#174-历史现场复盘">17.4 历史现场复盘</a>
+<a class="toc-level-3" href="#175-缺失索引治理">17.5 缺失索引治理</a>
+<a class="toc-level-3" href="#176-索引碎片维护">17.6 索引碎片维护</a>
+<a class="toc-level-2" href="#18-验收和检查">18. 验收和检查</a>
+<a class="toc-level-2" href="#19-常见问题">19. 常见问题</a>
+<a class="toc-level-3" href="#191-登录失败">19.1 登录失败</a>
+<a class="toc-level-3" href="#192-页面显示无数据或数据过旧">19.2 页面显示无数据或数据过旧</a>
+<a class="toc-level-3" href="#193-实例连接测试失败">19.3 实例连接测试失败</a>
+<a class="toc-level-3" href="#194-kill-session-失败">19.4 Kill Session 失败</a>
+<a class="toc-level-3" href="#195-索引页面无数据">19.5 索引页面无数据</a>
+    </nav>
+    <main><article>
+<h1 id="sql-server-实时监控平台说明文档">SQL Server 实时监控平台说明文档</h1>
+<h2 id="1-文档说明">1. 文档说明</h2>
+<p>本文档基于当前项目 <code>/Users/chenxuan/sql/.worktrees/sqlmon-p0</code> 的代码、接口、部署脚本和已启动页面整理，面向 DBA、后端研发、运维/SRE 说明平台的启动方式、页面功能和完整排查流程。</p>
+<p>当前本地启动地址：</p>
+<table>
+<thead><tr><th>服务</th><th>地址</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>前端</td><td><code>http://127.0.0.1:5173</code></td><td>Vue 3 + Vite 页面</td></tr>
+<tr><td>后端 API</td><td><code>http://127.0.0.1:8000/api</code></td><td>FastAPI 服务</td></tr>
+<tr><td>健康检查</td><td><code>http://127.0.0.1:8000/api/health</code></td><td>返回 <code>{&quot;status&quot;:&quot;ok&quot;}</code></td></tr>
+</tbody>
+</table>
+<p>默认管理员由迁移脚本初始化：</p>
+<table>
+<thead><tr><th>用户名</th><th>密码</th><th>角色</th></tr></thead>
+<tbody>
+<tr><td><code>admin</code></td><td><code>Admin@2026</code></td><td><code>admin</code></td></tr>
+</tbody>
+</table>
+<blockquote>生产环境部署后应立即修改默认管理员密码，并配置长度不少于 32 字符的 <code>SQLMON_SECRET_KEY</code>。</blockquote>
+<h2 id="2-系统定位">2. 系统定位</h2>
+<p>SQL Server 实时监控平台用于统一接入多个 SQL Server 实例，帮助用户在一个页面内完成实时观察、会话分析、SQL 分析、阻塞链定位、Kill 处置和历史回放。</p>
+<p>P0 已覆盖的核心闭环：</p>
+<ol>
+<li>登录和验证码校验。</li>
+<li>多实例配置、切换和连接测试。</li>
+<li>Dashboard 实时总览。</li>
+<li>Session 实时列表、筛选、排序和详情。</li>
+<li>SQL 实时列表、排序和完整 SQL 查看。</li>
+<li>阻塞链展示，识别根阻塞和影响范围。</li>
+<li>缺失索引建议查看和索引创建。</li>
+<li>索引碎片查看、REORGANIZE / REBUILD 维护。</li>
+<li>历史回放，按时间查看历史快照。</li>
+<li>用户、角色和账号状态管理。</li>
+<li>Kill Session 操作和审计接口。</li>
+</ol>
+<h2 id="3-技术架构">3. 技术架构</h2>
+<pre><code class="language-text">Browser
+  |
+  | HTTP / Vite proxy or Nginx
+  v
+Vue Frontend
+  |
+  | /api
+  v
+FastAPI Backend
+  |
+  | SQLAlchemy async
+  v
+PostgreSQL
+
+Collector Worker
+  |
+  | pyodbc
+  v
+SQL Server Instances
+
+Collector Worker
+  |
+  | snapshots / events
+  v
+PostgreSQL</code></pre>
+<p>主要目录：</p>
+<table>
+<thead><tr><th>目录</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>frontend/</code></td><td>Vue 3 + Vite 前端工程</td></tr>
+<tr><td><code>backend/app/api/routes/</code></td><td>FastAPI 路由</td></tr>
+<tr><td><code>backend/app/services/</code></td><td>业务服务层</td></tr>
+<tr><td><code>backend/app/collector/</code></td><td>SQL Server 采集器</td></tr>
+<tr><td><code>backend/app/db/migrations/</code></td><td>Alembic 数据库迁移</td></tr>
+<tr><td><code>deploy/</code></td><td>systemd、Nginx、启动脚本和环境变量示例</td></tr>
+<tr><td><code>docs/</code></td><td>PRD、技术设计、验收清单和本文档</td></tr>
+</tbody>
+</table>
+<h2 id="4-启动流程">4. 启动流程</h2>
+<h3 id="41-本地开发启动">4.1 本地开发启动</h3>
+<p>后端服务：</p>
+<pre><code class="language-bash">cd backend
+uvicorn app.main:app --host 127.0.0.1 --port 8000</code></pre>
+<p>前端服务：</p>
+<pre><code class="language-bash">cd frontend
+npm install
+npm run dev</code></pre>
+<p>前端 Vite 配置会把 <code>/api</code> 代理到 <code>http://localhost:8000</code>，因此页面内接口请求默认走同源 <code>/api</code>。</p>
+<h3 id="42-数据库迁移">4.2 数据库迁移</h3>
+<pre><code class="language-bash">cd backend
+alembic upgrade head</code></pre>
+<p>部署脚本中也提供了等价入口：</p>
+<pre><code class="language-bash">APP_HOME=/opt/sqlmon deploy/scripts/migrate.sh</code></pre>
+<h3 id="43-collector-启动">4.3 Collector 启动</h3>
+<p>Collector 用于从 SQL Server 周期采集 Session、Request、Wait、Blocking、资源趋势等快照：</p>
+<pre><code class="language-bash">cd backend
+python -m app.collector.main</code></pre>
+<p>部署脚本入口：</p>
+<pre><code class="language-bash">APP_HOME=/opt/sqlmon deploy/scripts/start-collector.sh</code></pre>
+<h3 id="44-生产部署要点">4.4 生产部署要点</h3>
+<p>生产部署建议使用：</p>
+<table>
+<thead><tr><th>组件</th><th>文件</th></tr></thead>
+<tbody>
+<tr><td>API systemd</td><td><code>deploy/systemd/sqlmon-api.service</code></td></tr>
+<tr><td>Collector systemd</td><td><code>deploy/systemd/sqlmon-collector.service</code></td></tr>
+<tr><td>Nginx</td><td><code>deploy/nginx/sqlmon.conf</code></td></tr>
+<tr><td>环境变量</td><td><code>deploy/env/app.env.example</code></td></tr>
+</tbody>
+</table>
+<p>关键环境变量：</p>
+<table>
+<thead><tr><th>变量</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td><code>SQLMON_ENV</code></td><td>环境，生产配置为 <code>prod</code></td></tr>
+<tr><td><code>SQLMON_SECRET_KEY</code></td><td>JWT 和验证码签名密钥</td></tr>
+<tr><td><code>SQLMON_DATABASE_URL</code></td><td>PostgreSQL 连接串</td></tr>
+<tr><td><code>SQLMON_ENCRYPTION_KEY</code></td><td>实例连接凭据加密密钥</td></tr>
+<tr><td><code>SQLMON_API_HOST</code> / <code>SQLMON_API_PORT</code></td><td>API 监听地址和端口</td></tr>
+<tr><td><code>SQLMON_MIN_KILLABLE_SESSION_ID</code></td><td>允许 Kill 的最小 Session ID</td></tr>
+</tbody>
+</table>
+<h2 id="5-登录流程">5. 登录流程</h2>
+<p>访问 <code>http://127.0.0.1:5173/login</code> 后，页面会加载 6 位数字验证码。输入用户名、密码和验证码后，后端返回访问令牌，前端保存登录态并跳转到仪表盘。</p>
+<p><img src="assets/sqlmon-guide/01-login.png" alt="登录页面"></p>
+<p>操作步骤：</p>
+<ol>
+<li>打开登录页。</li>
+<li>输入用户名和密码。</li>
+<li>输入图片中的 6 位验证码。</li>
+<li>验证码看不清时点击验证码图片或“换一张”。</li>
+<li>点击“登录”进入系统。</li>
+</ol>
+<p>接口关系：</p>
+<table>
+<thead><tr><th>步骤</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>获取验证码</td><td><code>GET /api/auth/captcha</code></td></tr>
+<tr><td>登录</td><td><code>POST /api/auth/login</code></td></tr>
+</tbody>
+</table>
+<h2 id="6-主界面说明">6. 主界面说明</h2>
+<p>登录后进入主界面，左侧为导航栏，右侧为当前页面内容。左侧导航包含：</p>
+<table>
+<thead><tr><th>菜单</th><th>路由</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>仪表盘</td><td><code>/dashboard</code></td><td>实例整体状态、资源趋势、Top Wait、Top SQL</td></tr>
+<tr><td>会话监控</td><td><code>/sessions</code></td><td>当前 Session 列表、筛选、详情、终止</td></tr>
+<tr><td>SQL 分析</td><td><code>/sqls</code></td><td>当前运行 SQL 列表、排序、详情</td></tr>
+<tr><td>阻塞分析</td><td><code>/blocking</code></td><td>阻塞链和根阻塞识别</td></tr>
+<tr><td>缺失索引</td><td><code>/indexes/missing</code></td><td>查看缺失索引建议并发起索引创建</td></tr>
+<tr><td>索引碎片</td><td><code>/indexes/fragmentation</code></td><td>查看索引碎片率并执行索引维护</td></tr>
+<tr><td>回放分析</td><td><code>/replay</code></td><td>按时间查询历史快照</td></tr>
+<tr><td>实例设置</td><td><code>/settings/instances</code></td><td>SQL Server 实例维护</td></tr>
+<tr><td>用户管理</td><td><code>/settings/users</code></td><td>平台用户、角色和账号状态维护</td></tr>
+</tbody>
+</table>
+<p>右上角可切换浅色/深色主题。左下角显示当前登录用户、登录时间和退出登录按钮。</p>
+<h2 id="7-全局实例和刷新控制">7. 全局实例和刷新控制</h2>
+<p>多数监控页面顶部都有实例选择器和刷新控制。</p>
+<p>操作步骤：</p>
+<ol>
+<li>在“实例”下拉框选择目标 SQL Server 实例。</li>
+<li>切换实例后，当前页面会重新拉取该实例数据。</li>
+<li>开启“自动刷新”后，页面按选定间隔刷新。</li>
+<li>需要临时观察现场时，可切换为“暂停”。</li>
+<li>点击“刷新”可立即拉取最新快照。</li>
+</ol>
+<p>当前截图环境中的实例为“主数据库 <code>(192.168.1.26:1433)</code>”。</p>
+<h2 id="8-仪表盘使用流程">8. 仪表盘使用流程</h2>
+<p>仪表盘是实时排障入口，用于先判断实例是否异常。</p>
+<p><img src="assets/sqlmon-guide/02-dashboard.png" alt="仪表盘"></p>
+<p>页面区域：</p>
+<table>
+<thead><tr><th>区域</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>快照信息</td><td>展示快照时间和采集延迟</td></tr>
+<tr><td>指标卡片</td><td>总会话、活动请求、阻塞会话、根阻塞、最长阻塞、等待请求、近 1 小时死锁</td></tr>
+<tr><td>资源趋势</td><td>CPU、内存、网络速率曲线</td></tr>
+<tr><td>主要等待</td><td>当前 Wait 类型、类别、任务数和等待时长</td></tr>
+<tr><td>CPU 最高 SQL</td><td>按 CPU 时间排序的 SQL</td></tr>
+<tr><td>IO 最高 SQL</td><td>按逻辑读/写入等指标展示高 IO SQL</td></tr>
+</tbody>
+</table>
+<p>操作步骤：</p>
+<ol>
+<li>选择目标实例。</li>
+<li>根据“快照时间”和“采集延迟”判断数据是否新鲜。</li>
+<li>查看指标卡片，优先关注“阻塞会话”“根阻塞”“最长阻塞”“等待请求”。</li>
+<li>查看 CPU、内存、网络曲线，判断资源是否持续偏高。</li>
+<li>查看“主要等待”，识别锁等待、IO 等待或其他等待类型。</li>
+<li>在“CPU 最高 SQL”或“IO 最高 SQL”中点击“详情”查看完整 SQL。</li>
+</ol>
+<p>SQL 详情弹窗示例：</p>
+<p><img src="assets/sqlmon-guide/08-sql-detail.png" alt="SQL 详情"></p>
+<h2 id="9-会话监控流程">9. 会话监控流程</h2>
+<p>会话监控用于查看当前所有 Session 的状态、来源、资源消耗、等待和当前 SQL。</p>
+<p><img src="assets/sqlmon-guide/03-sessions.png" alt="会话监控"></p>
+<p>页面能力：</p>
+<table>
+<thead><tr><th>控件/列</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>状态筛选</td><td>支持运行中、休眠、挂起</td></tr>
+<tr><td>仅阻塞</td><td>只查看存在阻塞关系的会话</td></tr>
+<tr><td>仅打开事务</td><td>只查看打开事务数大于 0 的会话</td></tr>
+<tr><td>排序列</td><td>会话、CPU、逻辑读、读、写等字段可排序</td></tr>
+<tr><td>详情</td><td>打开 Session 详情抽屉</td></tr>
+<tr><td>终止</td><td>打开 Kill 确认弹窗</td></tr>
+</tbody>
+</table>
+<p>排查步骤：</p>
+<ol>
+<li>进入“会话监控”。</li>
+<li>选择目标实例。</li>
+<li>需要定位阻塞时勾选“仅阻塞”。</li>
+<li>需要定位长事务时勾选“仅打开事务”。</li>
+<li>按 CPU、逻辑读、写入等列排序，找出资源消耗最高的 Session。</li>
+<li>点击“详情”查看 Session 的来源、SQL、等待和阻塞信息。</li>
+<li>如确认需要处置，点击“终止”，输入原因后提交。</li>
+</ol>
+<p>Kill Session 处理流程：</p>
+<pre><code class="language-text">用户点击终止
+  -&gt; 前端弹出二次确认
+  -&gt; 用户输入原因
+  -&gt; 后端校验登录用户和安全规则
+  -&gt; 后端连接 SQL Server 执行 KILL
+  -&gt; 后端写入 kill_audits 审计记录
+  -&gt; 前端刷新会话/阻塞数据</code></pre>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>会话列表</td><td><code>GET /api/sessions</code></td></tr>
+<tr><td>会话详情</td><td><code>GET /api/sessions/{session_id}</code></td></tr>
+<tr><td>终止会话</td><td><code>POST /api/kill</code></td></tr>
+<tr><td>Kill 审计</td><td><code>GET /api/audits/kills</code></td></tr>
+</tbody>
+</table>
+<h2 id="10-sql-分析流程">10. SQL 分析流程</h2>
+<p>SQL 分析用于查看当前正在执行的 SQL，并按 CPU、耗时、逻辑读、读、写、等待时间等指标排序。</p>
+<p><img src="assets/sqlmon-guide/04-sqls.png" alt="SQL 分析"></p>
+<p>操作步骤：</p>
+<ol>
+<li>进入“SQL 分析”。</li>
+<li>默认按 CPU 倒序查看高 CPU SQL。</li>
+<li>点击表头切换排序字段，例如耗时、逻辑读、写入、等待时间。</li>
+<li>查看 SQL 预览，确认数据库、Session、命令和等待类型。</li>
+<li>点击“详情”查看完整 SQL 文本、SQL Hash 和资源指标。</li>
+</ol>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>SQL 列表</td><td><code>GET /api/sqls</code></td></tr>
+<tr><td>SQL 详情</td><td><code>GET /api/sqls/{sql_hash}</code></td></tr>
+</tbody>
+</table>
+<h2 id="11-阻塞分析流程">11. 阻塞分析流程</h2>
+<p>阻塞分析用于展示阻塞链、根阻塞、被阻塞会话数、等待类型和锁资源。</p>
+<p><img src="assets/sqlmon-guide/05-blocking.png" alt="阻塞分析"></p>
+<p>页面字段：</p>
+<table>
+<thead><tr><th>字段</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>根阻塞</td><td>阻塞链最上游 Session</td></tr>
+<tr><td>被阻塞会话数</td><td>当前链路影响范围</td></tr>
+<tr><td>风险等级</td><td><code>low</code>、<code>medium</code>、<code>high</code> 对应低/中/高风险</td></tr>
+<tr><td>层级</td><td>阻塞链深度</td></tr>
+<tr><td>阻塞源</td><td>造成当前节点等待的 Session</td></tr>
+<tr><td>被阻塞会话</td><td>正在等待的 Session</td></tr>
+<tr><td>等待类型</td><td>SQL Server Wait Type</td></tr>
+<tr><td>等待时长</td><td>当前等待持续时间</td></tr>
+<tr><td>资源</td><td>锁资源描述</td></tr>
+<tr><td>环路</td><td>是否检测到阻塞环</td></tr>
+</tbody>
+</table>
+<p>阻塞排查步骤：</p>
+<ol>
+<li>进入“阻塞分析”。</li>
+<li>找到风险等级最高、被阻塞会话最多或最长等待时间最高的链路。</li>
+<li>记录根阻塞 Session ID。</li>
+<li>回到“会话监控”，搜索或定位该 Session，查看打开事务、主机、程序和 SQL。</li>
+<li>回到“SQL 分析”，查看相关 SQL 的完整文本和资源指标。</li>
+<li>判断是否为长事务、未提交事务、锁竞争或批量任务。</li>
+<li>如需处置，通过“会话监控”的“终止”入口执行 Kill，并填写原因。</li>
+</ol>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>阻塞链</td><td><code>GET /api/blocking</code></td></tr>
+</tbody>
+</table>
+<h2 id="12-缺失索引治理流程">12. 缺失索引治理流程</h2>
+<p>缺失索引用于查看 SQL Server DMV 给出的索引建议，并在确认后发起 <code>CREATE INDEX</code> 操作。</p>
+<p><img src="assets/sqlmon-guide/09-missing-indexes.png" alt="缺失索引"></p>
+<p>页面字段：</p>
+<table>
+<thead><tr><th>字段</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>用户库</td><td>当前实例下的非系统数据库</td></tr>
+<tr><td>快照最后更新时间</td><td>Collector 最近一次采集缺失索引数据的时间</td></tr>
+<tr><td>采集状态</td><td><code>采集成功</code>、<code>数据可能过期</code>、<code>采集失败</code> 或 <code>等待采集</code></td></tr>
+<tr><td>键列</td><td>建议索引的 equality + inequality 列</td></tr>
+<tr><td>包含列</td><td>建议索引的 include columns</td></tr>
+<tr><td>Seeks / Scans</td><td>DMV 统计的查找和扫描次数</td></tr>
+<tr><td>平均成本 / 影响%</td><td>SQL Server 估算的成本和收益</td></tr>
+<tr><td>建议索引名</td><td>平台生成的轻量索引名称</td></tr>
+<tr><td>新建索引</td><td>打开创建确认弹窗</td></tr>
+</tbody>
+</table>
+<p>操作步骤：</p>
+<ol>
+<li>进入“缺失索引”。</li>
+<li>选择目标实例。</li>
+<li>在“用户库”下拉框选择需要治理的业务库。</li>
+<li>查看快照更新时间和采集状态，确认数据是否可用。</li>
+<li>按 Seeks、平均成本、影响% 等指标判断优先级。</li>
+<li>重点检查“键列”和“包含列”，确认是否符合业务查询模式。</li>
+<li>点击“新建索引”。</li>
+<li>在弹窗中确认目标表、键列、包含列和索引名。</li>
+<li>点击“确认创建”后，平台提交索引创建请求。</li>
+<li>如果后端返回后台执行状态，页面会轮询索引审计结果；完成后刷新列表确认。</li>
+</ol>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>用户库列表</td><td><code>GET /api/indexes/databases</code></td></tr>
+<tr><td>缺失索引列表</td><td><code>GET /api/indexes/missing</code></td></tr>
+<tr><td>新建索引</td><td><code>POST /api/indexes</code></td></tr>
+<tr><td>索引操作审计</td><td><code>GET /api/indexes/audits/{audit_id}</code></td></tr>
+</tbody>
+</table>
+<h2 id="13-索引碎片维护流程">13. 索引碎片维护流程</h2>
+<p>索引碎片用于查看用户库中索引的碎片率、页数和平台建议动作，并在确认后执行 <code>REORGANIZE</code> 或 <code>REBUILD</code>。</p>
+<p><img src="assets/sqlmon-guide/10-index-fragmentation.png" alt="索引碎片"></p>
+<p>页面字段：</p>
+<table>
+<thead><tr><th>字段</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>用户库</td><td>当前实例下的非系统数据库</td></tr>
+<tr><td>Online Rebuild</td><td>当前实例是否支持在线重建</td></tr>
+<tr><td>索引名</td><td>目标索引名称</td></tr>
+<tr><td>类型</td><td>SQL Server 索引类型</td></tr>
+<tr><td>分区</td><td>分区号</td></tr>
+<tr><td>碎片率</td><td><code>avg_fragmentation_in_percent</code></td></tr>
+<tr><td>页数</td><td><code>page_count</code></td></tr>
+<tr><td>建议</td><td><code>NONE</code>、<code>REORGANIZE</code> 或 <code>REBUILD</code></td></tr>
+<tr><td>操作</td><td>对可处理索引执行建议动作</td></tr>
+</tbody>
+</table>
+<p>维护步骤：</p>
+<ol>
+<li>进入“索引碎片”。</li>
+<li>选择目标实例和用户库。</li>
+<li>查看快照更新时间、采集状态和 Online Rebuild 支持情况。</li>
+<li>按碎片率和页数判断维护优先级。</li>
+<li>对建议为 <code>REORGANIZE</code> 或 <code>REBUILD</code> 的行点击“执行”。</li>
+<li>在弹窗中确认目标库、表、索引、分区、碎片率和动作。</li>
+<li>点击“确认执行”提交维护请求。</li>
+<li>如果操作进入后台执行，等待轮询结果或稍后刷新确认。</li>
+</ol>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>索引碎片列表</td><td><code>GET /api/indexes/fragmentation</code></td></tr>
+<tr><td>执行索引维护</td><td><code>POST /api/indexes/fragmentation/actions</code></td></tr>
+<tr><td>索引操作审计</td><td><code>GET /api/indexes/audits/{audit_id}</code></td></tr>
+</tbody>
+</table>
+<p>注意事项：</p>
+<ol>
+<li>索引创建、重建和重组都会在 SQL Server 中执行 DDL，请在业务低峰或明确授权后操作。</li>
+<li><code>REBUILD</code> 在支持 Online Rebuild 的环境中会优先使用 <code>ONLINE = ON</code>。</li>
+<li>操作连接依赖实例配置中的可执行数据库连接；未配置时会返回无法执行。</li>
+<li>前端等待超时时，后台可能仍在执行，应通过审计结果或刷新页面确认最终状态。</li>
+</ol>
+<h2 id="14-历史回放流程">14. 历史回放流程</h2>
+<p>回放分析用于按时间查询历史快照，复盘某一时刻的会话、SQL 和阻塞现场。</p>
+<p><img src="assets/sqlmon-guide/06-replay.png" alt="回放分析"></p>
+<p>操作步骤：</p>
+<ol>
+<li>进入“回放分析”。</li>
+<li>选择目标实例。</li>
+<li>在时间选择器中选择需要复盘的时间点。</li>
+<li>点击“查询回放”。</li>
+<li>页面展示请求时间和命中快照时间。</li>
+<li>查看顶部指标卡片了解当时整体状态。</li>
+<li>在“会话”“SQL”“阻塞”标签页中分别查看现场数据。</li>
+</ol>
+<p>回放匹配规则：</p>
+<pre><code class="language-text">用户选择时间
+  -&gt; 前端请求 /api/replay
+  -&gt; 后端查找不晚于目标时间的最近快照
+  -&gt; 返回 dashboard / sessions / sqls / blocking / waits / tempdb
+  -&gt; 前端按历史快照渲染</code></pre>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>历史回放</td><td><code>GET /api/replay</code></td></tr>
+</tbody>
+</table>
+<h2 id="15-实例设置流程">15. 实例设置流程</h2>
+<p>实例设置用于维护 SQL Server 接入配置、采集策略和责任人。</p>
+<p><img src="assets/sqlmon-guide/07-instances.png" alt="实例设置"></p>
+<p>页面字段：</p>
+<table>
+<thead><tr><th>字段</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>实例名</td><td>业务可读名称</td></tr>
+<tr><td>环境</td><td><code>prod</code>、<code>staging</code>、<code>dev</code> 等</td></tr>
+<tr><td>主机/端口</td><td>SQL Server 地址</td></tr>
+<tr><td>数据库</td><td>默认数据库</td></tr>
+<tr><td>状态</td><td><code>online</code>、<code>offline</code>、<code>collect_error</code>、<code>disabled</code></td></tr>
+<tr><td>采集 DSN</td><td>是否已配置采集连接凭据</td></tr>
+<tr><td>终止 DSN</td><td>是否已配置 Kill 连接凭据</td></tr>
+<tr><td>采集间隔</td><td>Collector 采集周期</td></tr>
+<tr><td>保留天数</td><td>历史快照保留周期</td></tr>
+<tr><td>业务负责人 / DBA</td><td>实例责任人</td></tr>
+<tr><td>SQL Server 版本</td><td>连接测试或采集得到的版本信息</td></tr>
+</tbody>
+</table>
+<p>新增实例步骤：</p>
+<ol>
+<li>点击“新增实例”。</li>
+<li>填写实例名称、IP 地址、端口。</li>
+<li>填写 SQL 认证用户名和密码。</li>
+<li>选择或输入数据库。</li>
+<li>设置采集间隔和保留天数。</li>
+<li>填写业务负责人和 DBA。</li>
+<li>点击“测试连接”，确认连接成功并获取数据库列表/版本信息。</li>
+<li>点击“保存”。</li>
+</ol>
+<p>编辑实例步骤：</p>
+<ol>
+<li>在实例列表中点击“编辑”。</li>
+<li>修改基础信息、采集策略或责任人。</li>
+<li>如需重建 DSN，填写用户名和密码；留空则保留原密码。</li>
+<li>点击“测试连接”确认。</li>
+<li>点击“保存修改”。</li>
+</ol>
+<p>连接测试说明：</p>
+<table>
+<thead><tr><th>场景</th><th>操作</th></tr></thead>
+<tbody>
+<tr><td>测试新实例</td><td>弹窗中点击“测试连接”</td></tr>
+<tr><td>测试已有实例</td><td>列表行点击“测试”</td></tr>
+<tr><td>批量测试</td><td>顶部点击“测试状态”</td></tr>
+<tr><td>自动测试</td><td>打开“自动测试”，选择 5 秒到 300 秒间隔</td></tr>
+</tbody>
+</table>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>实例列表</td><td><code>GET /api/instances</code></td></tr>
+<tr><td>新增实例</td><td><code>POST /api/instances</code></td></tr>
+<tr><td>编辑实例</td><td><code>PUT /api/instances/{instance_id}</code></td></tr>
+<tr><td>删除实例</td><td><code>DELETE /api/instances/{instance_id}</code></td></tr>
+<tr><td>测试新连接</td><td><code>POST /api/instances/test-connection</code></td></tr>
+<tr><td>测试已有连接</td><td><code>POST /api/instances/{instance_id}/test-connection</code></td></tr>
+</tbody>
+</table>
+<h2 id="16-用户管理流程">16. 用户管理流程</h2>
+<p>用户管理用于维护平台本地账号、角色权限和账号状态。</p>
+<p><img src="assets/sqlmon-guide/11-users.png" alt="用户管理"></p>
+<p>角色说明：</p>
+<table>
+<thead><tr><th>角色</th><th>权限说明</th></tr></thead>
+<tbody>
+<tr><td>Viewer</td><td>基础指标只读</td></tr>
+<tr><td>Developer</td><td>Session、SQL、历史回放和完整 SQL</td></tr>
+<tr><td>DBA</td><td>全部监控、Kill、审计和索引治理</td></tr>
+<tr><td>Admin</td><td>实例、用户和系统配置</td></tr>
+</tbody>
+</table>
+<p>新增用户步骤：</p>
+<ol>
+<li>进入“用户管理”。</li>
+<li>点击“新增用户”。</li>
+<li>填写用户名、显示名称和初始密码。</li>
+<li>选择角色。</li>
+<li>点击“保存”。</li>
+</ol>
+<p>编辑用户步骤：</p>
+<ol>
+<li>在用户列表点击“编辑”。</li>
+<li>修改显示名称、角色或状态。</li>
+<li>点击“保存修改”。</li>
+</ol>
+<p>重置密码步骤：</p>
+<ol>
+<li>在用户列表点击“重置密码”。</li>
+<li>输入不少于 8 位的新密码。</li>
+<li>点击“保存密码”。</li>
+</ol>
+<p>禁用用户步骤：</p>
+<ol>
+<li>在用户列表点击“禁用”。</li>
+<li>在确认弹窗中再次确认。</li>
+<li>禁用后该用户无法继续登录平台。</li>
+</ol>
+<p>限制说明：</p>
+<ol>
+<li>只有 <code>admin</code> 角色可以访问用户管理。</li>
+<li>当前登录用户不能禁用自己。</li>
+<li>用户名重复时，后端返回冲突错误。</li>
+</ol>
+<p>相关接口：</p>
+<table>
+<thead><tr><th>功能</th><th>API</th></tr></thead>
+<tbody>
+<tr><td>用户列表</td><td><code>GET /api/users</code></td></tr>
+<tr><td>新增用户</td><td><code>POST /api/users</code></td></tr>
+<tr><td>编辑用户</td><td><code>PUT /api/users/{user_id}</code></td></tr>
+<tr><td>禁用用户</td><td><code>POST /api/users/{user_id}/disable</code></td></tr>
+<tr><td>重置密码</td><td><code>POST /api/users/{user_id}/reset-password</code></td></tr>
+</tbody>
+</table>
+<h2 id="17-典型排障流程">17. 典型排障流程</h2>
+<h3 id="171-实时阻塞排查">17.1 实时阻塞排查</h3>
+<ol>
+<li>打开“仪表盘”。</li>
+<li>查看“阻塞会话”“根阻塞”“最长阻塞”指标。</li>
+<li>如果存在明显阻塞，进入“阻塞分析”。</li>
+<li>找到风险最高或影响范围最大的阻塞链。</li>
+<li>记录根阻塞 Session ID。</li>
+<li>进入“会话监控”，打开该 Session 详情。</li>
+<li>查看主机、程序、登录名、打开事务数、等待类型和 SQL 预览。</li>
+<li>进入“SQL 分析”，查看相关 SQL 完整文本。</li>
+<li>确认是否需要 Kill。</li>
+<li>点击“终止”，填写原因并提交。</li>
+<li>回到“阻塞分析”或“仪表盘”，刷新确认阻塞是否解除。</li>
+</ol>
+<h3 id="172-高-cpu-sql-排查">17.2 高 CPU SQL 排查</h3>
+<ol>
+<li>打开“仪表盘”。</li>
+<li>观察 CPU 曲线是否持续偏高。</li>
+<li>查看“CPU 最高 SQL”区域。</li>
+<li>点击“详情”查看 SQL 文本和执行信息。</li>
+<li>进入“SQL 分析”，按 CPU 倒序进一步查看更多 SQL。</li>
+<li>结合数据库、命令、执行时长、逻辑读和等待类型判断问题性质。</li>
+</ol>
+<h3 id="173-高-io-sql-排查">17.3 高 IO SQL 排查</h3>
+<ol>
+<li>打开“仪表盘”。</li>
+<li>观察网络速率和 IO 最高 SQL。</li>
+<li>进入“SQL 分析”。</li>
+<li>按逻辑读、读、写排序。</li>
+<li>打开 SQL 详情，确认是否为大表扫描、批量写入或报表任务。</li>
+</ol>
+<h3 id="174-历史现场复盘">17.4 历史现场复盘</h3>
+<ol>
+<li>明确问题发生时间。</li>
+<li>进入“回放分析”。</li>
+<li>选择实例和问题时间点。</li>
+<li>查询回放并记录命中快照时间。</li>
+<li>查看当时的指标、会话、SQL 和阻塞。</li>
+<li>必要时结合 Kill 审计接口查看处置记录。</li>
+</ol>
+<h3 id="175-缺失索引治理">17.5 缺失索引治理</h3>
+<ol>
+<li>进入“缺失索引”。</li>
+<li>选择实例和用户库。</li>
+<li>查看采集状态，确认快照不是过期或失败。</li>
+<li>优先关注 Seeks 高、平均成本高、影响% 高的建议。</li>
+<li>对照业务 SQL 和已有索引确认是否需要新建。</li>
+<li>点击“新建索引”并确认索引名、键列和包含列。</li>
+<li>提交后等待审计结果。</li>
+<li>返回“SQL 分析”或业务侧观察查询性能变化。</li>
+</ol>
+<h3 id="176-索引碎片维护">17.6 索引碎片维护</h3>
+<ol>
+<li>进入“索引碎片”。</li>
+<li>选择实例和用户库。</li>
+<li>按碎片率、页数和建议动作筛选维护目标。</li>
+<li>对建议为 <code>REORGANIZE</code> 或 <code>REBUILD</code> 的索引执行维护。</li>
+<li>对大表或高峰期敏感表，先确认维护窗口和锁风险。</li>
+<li>操作后刷新页面确认碎片率和审计结果。</li>
+</ol>
+<h2 id="18-验收和检查">18. 验收和检查</h2>
+<p>后端测试：</p>
+<pre><code class="language-bash">cd backend
+python3 -m pytest -v</code></pre>
+<p>前端构建：</p>
+<pre><code class="language-bash">cd frontend
+npm run build</code></pre>
+<p>基础接口检查：</p>
+<pre><code class="language-bash">curl http://127.0.0.1:8000/api/health</code></pre>
+<p>P0 验收清单见：</p>
+<pre><code class="language-text">docs/p0-acceptance-checklist.md</code></pre>
+<h2 id="19-常见问题">19. 常见问题</h2>
+<h3 id="191-登录失败">19.1 登录失败</h3>
+<p>检查项：</p>
+<ol>
+<li>用户名和密码是否正确。</li>
+<li>验证码是否为当前图片中的 6 位数字。</li>
+<li>验证码是否已过期。</li>
+<li>后端 API 是否正常启动。</li>
+</ol>
+<h3 id="192-页面显示无数据或数据过旧">19.2 页面显示无数据或数据过旧</h3>
+<p>检查项：</p>
+<ol>
+<li>当前实例是否选择正确。</li>
+<li>Collector 是否运行。</li>
+<li>实例状态是否为 <code>online</code>。</li>
+<li>PostgreSQL 中是否存在最新快照。</li>
+<li>页面顶部快照时间和采集延迟是否异常。</li>
+</ol>
+<h3 id="193-实例连接测试失败">19.3 实例连接测试失败</h3>
+<p>检查项：</p>
+<ol>
+<li>SQL Server 主机和端口是否可达。</li>
+<li>SQL 认证用户名和密码是否正确。</li>
+<li>默认数据库是否存在。</li>
+<li>服务器是否安装 Microsoft ODBC Driver 18。</li>
+<li>SQL Server 账号是否具备采集所需 DMV 权限。</li>
+</ol>
+<h3 id="194-kill-session-失败">19.4 Kill Session 失败</h3>
+<p>检查项：</p>
+<ol>
+<li>当前用户是否具备处置权限。</li>
+<li>Session ID 是否低于 <code>SQLMON_MIN_KILLABLE_SESSION_ID</code>。</li>
+<li>实例是否配置终止 DSN。</li>
+<li>Kill 连接账号是否具备执行 <code>KILL</code> 的权限。</li>
+<li>目标 Session 是否已经结束。</li>
+</ol>
+<h3 id="195-索引页面无数据">19.5 索引页面无数据</h3>
+<p>检查项：</p>
+<ol>
+<li>当前实例是否已有可用用户库。</li>
+<li>Collector 是否已完成索引采集。</li>
+<li><code>SQLMON_INDEX_COLLECT_DATABASE_CONCURRENCY</code> 和采集超时是否适合当前库数量和表规模。</li>
+<li>采集账号是否具备查询缺失索引 DMV、<code>sys.indexes</code> 和 <code>sys.dm_db_index_physical_stats</code> 的权限。</li>
+<li>页面快照状态是否提示采集失败或数据过期。</li>
+</ol>
+
+    </article></main>
+  </div>
+</body>
+</html>

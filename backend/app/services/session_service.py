@@ -4,7 +4,14 @@ import uuid
 from typing import Any, Optional
 
 from app.schemas.sessions import SessionListItem, SessionListOut, SessionSortBy, SortOrder
-from app.services.dashboard_service import _frame_attribute, _get, _repository, _sql_preview_map, frame_ref
+from app.services.dashboard_service import (
+    _collect_delay_seconds,
+    _frame_attribute,
+    _get,
+    _repository,
+    _sql_preview_map,
+    frame_ref,
+)
 
 
 async def list_sessions(
@@ -50,6 +57,7 @@ async def list_sessions(
         instance_id=instance_id,
         frame_id=ref.frame_id,
         snapshot_time=ref.snapshot_time,
+        collect_delay_seconds=_collect_delay_seconds(ref.snapshot_time),
         page=page,
         page_size=page_size,
         total=total,

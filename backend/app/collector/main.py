@@ -7,8 +7,14 @@ import uuid
 from typing import Optional
 
 from app.collector.instance_runner import collect_instance_once
-from app.collector.real_instance_collector import collect_instance_snapshot, list_collectable_instances
+from app.collector.real_instance_collector import (
+    collect_instance_snapshot,
+    list_collectable_instances,
+    collect_index_snapshots_for_instance,
+)
 from app.db.postgres import async_session_factory
+
+_index_collection_tasks: dict[uuid.UUID, asyncio.Task] = {}
 
 
 def run_collector(
@@ -82,6 +88,7 @@ async def collect_instances_once(instance_id: Optional[uuid.UUID] = None) -> Non
                 session,
                 instance,
                 collect_status=collect_status,
+                collect_indexes=False,
             )
             if result.success:
                 print(
@@ -94,6 +101,7 @@ async def collect_instances_once(instance_id: Optional[uuid.UUID] = None) -> Non
                     f"blocking_edges={result.blocking_edges_collected}",
                     flush=True,
                 )
+                schedule_index_collection_for_instance(result.instance_id)
             else:
                 print(
                     "collector failed "
@@ -101,6 +109,36 @@ async def collect_instances_once(instance_id: Optional[uuid.UUID] = None) -> Non
                     f"error={result.error_message}",
                     flush=True,
                 )
+
+
+def schedule_index_collection_for_instance(instance_id: uuid.UUID) -> bool:
+    task = _index_collection_tasks.get(instance_id)
+    if task is not None and not task.done():
+        return False
+
+    task = asyncio.create_task(_run_index_collection_for_instance(instance_id))
+    _index_collection_tasks[instance_id] = task
+    task.add_done_callback(lambda done_task: _finish_index_collection_task(instance_id, done_task))
+    return True
+
+
+def _finish_index_collection_task(instance_id: uuid.UUID, task: asyncio.Task) -> None:
+    if _index_collection_tasks.get(instance_id) is task:
+        _index_collection_tasks.pop(instance_id, None)
+    try:
+        task.result()
+    except Exception as exc:
+        print(
+            "collector index background failed "
+            f"instance_id={instance_id} "
+            f"error={exc}",
+            flush=True,
+        )
+
+
+async def _run_index_collection_for_instance(instance_id: uuid.UUID) -> None:
+    async with async_session_factory() as session:
+        await collect_index_snapshots_for_instance(session, instance_id)
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

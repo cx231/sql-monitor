@@ -175,7 +175,10 @@ async def test_existing_instance_connection(
     return result
 
 
-def _to_instance_out(instance: Instance) -> InstanceOut:
+def _to_instance_out(
+    instance: Instance,
+    collect_status: InstanceCollectStatus | None = None,
+) -> InstanceOut:
     return InstanceOut(
         id=instance.id,
         name=instance.name,
@@ -187,10 +190,27 @@ def _to_instance_out(instance: Instance) -> InstanceOut:
         has_kill_dsn=instance.encrypted_kill_dsn is not None,
         status=instance.status,
         collect_interval_seconds=instance.collect_interval_seconds,
+        missing_index_collect_interval_seconds=(
+            instance.missing_index_collect_interval_seconds or 600
+        ),
+        index_fragmentation_collect_interval_seconds=(
+            instance.index_fragmentation_collect_interval_seconds or 600
+        ),
+        index_operation_timeout_seconds=instance.index_operation_timeout_seconds or 1800,
         retention_days=instance.retention_days,
         business_owner=instance.business_owner,
         dba_owner=instance.dba_owner,
         sqlserver_version=instance.sqlserver_version,
+        collect_status=collect_status.status if collect_status is not None else None,
+        last_success_at=collect_status.last_success_at if collect_status is not None else None,
+        last_failure_at=collect_status.last_failure_at if collect_status is not None else None,
+        last_duration_ms=collect_status.last_duration_ms if collect_status is not None else None,
+        consecutive_failures=(
+            collect_status.consecutive_failures if collect_status is not None else 0
+        ),
+        collect_error_message=(
+            collect_status.error_message if collect_status is not None else None
+        ),
         created_at=instance.created_at,
         updated_at=instance.updated_at,
     )
@@ -202,11 +222,14 @@ async def list_instances(session: AsyncSession) -> list[InstanceOut]:
         .where(Instance.status != "disabled")
         .order_by(Instance.created_at.desc())
     )
-    return [
-        _to_instance_out(instance)
-        for instance in result.scalars().all()
-        if instance.status != "disabled"
-    ]
+    instances = [instance for instance in result.scalars().all() if instance.status != "disabled"]
+    output = []
+    for instance in instances:
+        collect_status = None
+        if hasattr(session, "get"):
+            collect_status = await session.get(InstanceCollectStatus, instance.id)
+        output.append(_to_instance_out(instance, collect_status))
+    return output
 
 
 async def create_instance(session: AsyncSession, data: InstanceCreate) -> InstanceOut:
@@ -228,6 +251,9 @@ async def create_instance(session: AsyncSession, data: InstanceCreate) -> Instan
         encrypted_kill_dsn=encrypt_connection_string(data.kill_dsn) if data.kill_dsn else None,
         status=data.status,
         collect_interval_seconds=data.collect_interval_seconds,
+        missing_index_collect_interval_seconds=data.missing_index_collect_interval_seconds,
+        index_fragmentation_collect_interval_seconds=data.index_fragmentation_collect_interval_seconds,
+        index_operation_timeout_seconds=data.index_operation_timeout_seconds,
         retention_days=data.retention_days,
         business_owner=data.business_owner,
         dba_owner=data.dba_owner,
@@ -267,6 +293,9 @@ async def update_instance(
         "environment",
         "status",
         "collect_interval_seconds",
+        "missing_index_collect_interval_seconds",
+        "index_fragmentation_collect_interval_seconds",
+        "index_operation_timeout_seconds",
         "retention_days",
         "business_owner",
         "dba_owner",

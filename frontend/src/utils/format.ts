@@ -47,6 +47,26 @@ export function formatDateTime(value: string | null | undefined): string {
   });
 }
 
+export function formatSnapshotDateTime(value: string | null | undefined): string {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const pad = (part: number) => String(part).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  const seconds = pad(date.getSeconds());
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+}
+
 export function toIsoString(value: Date): string {
   return value.toISOString();
 }

@@ -5,11 +5,13 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.blocking import router as blocking_router
 from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.health import router as health_router
+from app.api.routes.indexes import router as indexes_router
 from app.api.routes.instances import router as instances_router
 from app.api.routes.kill import router as kill_router
 from app.api.routes.replay import router as replay_router
 from app.api.routes.sessions import router as sessions_router
 from app.api.routes.sqls import router as sqls_router
+from app.api.routes.users import router as users_router
 from app.config import get_settings
 
 
@@ -22,11 +24,13 @@ def create_app() -> FastAPI:
     app.include_router(blocking_router, prefix="/api")
     app.include_router(dashboard_router, prefix="/api")
     app.include_router(health_router, prefix="/api")
+    app.include_router(indexes_router, prefix="/api")
     app.include_router(instances_router, prefix="/api")
     app.include_router(kill_router, prefix="/api")
     app.include_router(replay_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(sqls_router, prefix="/api")
+    app.include_router(users_router, prefix="/api")
     return app
 
 

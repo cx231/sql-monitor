@@ -76,7 +76,8 @@ def _seeded_frame(instance_id, snapshot_time):
         status=frame.status,
         cpu_load_percent=None,
         memory_usage_percent=None,
-        network_bytes_total=None,
+        network_bytes_sent_total=None,
+        network_bytes_received_total=None,
         sessions=list(frame.sessions),
         requests=list(frame.requests),
         waits=list(frame.waits),
@@ -125,13 +126,16 @@ def test_dashboard_returns_resource_trends_for_selected_window() -> None:
     old_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=10))
     first_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=4))
     latest_frame = _seeded_frame(instance_id, base_time)
-    old_frame.network_bytes_total = 100_000
+    old_frame.network_bytes_sent_total = 100_000
+    old_frame.network_bytes_received_total = 200_000
     first_frame.cpu_load_percent = 18.5
     first_frame.memory_usage_percent = 62.0
-    first_frame.network_bytes_total = 1_000_000
+    first_frame.network_bytes_sent_total = 700_000
+    first_frame.network_bytes_received_total = 1_400_000
     latest_frame.cpu_load_percent = 24.0
     latest_frame.memory_usage_percent = 65.5
-    latest_frame.network_bytes_total = 1_600_000
+    latest_frame.network_bytes_sent_total = 1_000_000
+    latest_frame.network_bytes_received_total = 2_000_000
     repository = SeededSnapshotRepository([old_frame, first_frame, latest_frame])
 
     result = asyncio.run(get_dashboard(repository, instance_id, metrics_window_minutes=5))
@@ -142,10 +146,12 @@ def test_dashboard_returns_resource_trends_for_selected_window() -> None:
         first_frame.snapshot_time,
         latest_frame.snapshot_time,
     ]
-    assert result.resource_trends[0].network_rate_bytes_per_sec == 2_500.0
+    assert result.resource_trends[0].network_send_rate_bytes_per_sec == 1_666.6666666666667
+    assert result.resource_trends[0].network_receive_rate_bytes_per_sec == 3_333.3333333333335
     assert result.resource_trends[1].cpu_load_percent == 24.0
     assert result.resource_trends[1].memory_usage_percent == 65.5
-    assert result.resource_trends[1].network_rate_bytes_per_sec == 2_500.0
+    assert result.resource_trends[1].network_send_rate_bytes_per_sec == 1_250.0
+    assert result.resource_trends[1].network_receive_rate_bytes_per_sec == 2_500.0
 
 
 def test_dashboard_treats_network_counter_reset_as_zero_rate() -> None:
@@ -153,14 +159,17 @@ def test_dashboard_treats_network_counter_reset_as_zero_rate() -> None:
     base_time = datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc)
     previous_frame = _seeded_frame(instance_id, base_time - timedelta(minutes=1))
     latest_frame = _seeded_frame(instance_id, base_time)
-    previous_frame.network_bytes_total = 1_000_000
-    latest_frame.network_bytes_total = 900_000
+    previous_frame.network_bytes_sent_total = 1_000_000
+    previous_frame.network_bytes_received_total = 2_000_000
+    latest_frame.network_bytes_sent_total = 900_000
+    latest_frame.network_bytes_received_total = 1_900_000
     repository = SeededSnapshotRepository([previous_frame, latest_frame])
 
     result = asyncio.run(get_dashboard(repository, instance_id, metrics_window_minutes=5))
 
     assert result is not None
-    assert result.resource_trends[1].network_rate_bytes_per_sec == 0.0
+    assert result.resource_trends[1].network_send_rate_bytes_per_sec == 0.0
+    assert result.resource_trends[1].network_receive_rate_bytes_per_sec == 0.0
 
 
 def test_session_list_filters_blocked_open_transactions_and_paginates() -> None:
@@ -188,6 +197,23 @@ def test_session_list_filters_blocked_open_transactions_and_paginates() -> None:
     assert item.open_transaction_count == 1
     assert item.blocking_session_id == 53
     assert item.current_sql_preview is not None
+
+
+def test_realtime_list_outputs_include_backend_collect_delay() -> None:
+    instance_id = uuid.uuid4()
+    frame = _seeded_frame(instance_id, datetime(2026, 5, 10, 12, 0, tzinfo=timezone.utc))
+    repository = SeededSnapshotRepository([frame])
+
+    sessions = asyncio.run(list_sessions(repository, instance_id))
+    sqls = asyncio.run(list_sqls(repository, instance_id))
+    blocking = asyncio.run(get_blocking_chains(repository, instance_id))
+
+    assert sessions is not None
+    assert sqls is not None
+    assert blocking is not None
+    assert sessions.collect_delay_seconds >= 0
+    assert sqls.collect_delay_seconds >= 0
+    assert blocking.collect_delay_seconds >= 0
 
 
 def test_sql_list_sorts_by_wait_time_desc_and_pages() -> None:
